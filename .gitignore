@@ -1,0 +1,16 @@
+# Gradle
+build/
+.gradle/
+
+# IDE
+.idea/
+*.iml
+out/
+.vscode/
+
+# OS
+.DS_Store
+
+# Minecraft
+run/
+*.log
