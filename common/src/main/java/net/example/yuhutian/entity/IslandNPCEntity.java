@@ -41,8 +41,34 @@ import java.util.UUID;
  */
 public class IslandNPCEntity extends PathfinderMob {
 
+    /** NPC 的家园坐标，掉入虚空时传送回此位置 */
+    private double homeX = Double.NaN;
+    private double homeY = Double.NaN;
+    private double homeZ = Double.NaN;
+
     public IslandNPCEntity(EntityType<? extends PathfinderMob> entityType, Level level) {
         super(entityType, level);
+    }
+
+    @Override
+    public void moveTo(double x, double y, double z, float yRot, float xRot) {
+        super.moveTo(x, y, z, yRot, xRot);
+        if (Double.isNaN(homeX)) {
+            homeX = x;
+            homeY = y;
+            homeZ = z;
+        }
+    }
+
+    @Override
+    public void tick() {
+        super.tick();
+        // 虚空保护：Y 低于 50 时传送回生成位置
+        if (!this.level().isClientSide() && this.getY() < 50.0 && !Double.isNaN(homeX)) {
+            this.teleportTo(homeX, homeY, homeZ);
+            this.setDeltaMovement(0, 0, 0);
+            this.fallDistance = 0;
+        }
     }
 
     @Override

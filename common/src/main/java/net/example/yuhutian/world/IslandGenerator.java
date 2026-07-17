@@ -41,7 +41,7 @@ public final class IslandGenerator {
     private static final int STRUCTURE_Y = 100;
 
     /** NPC 生成位置相对于岛屿中心的 Y 偏移（岛屿表面） */
-    private static final double NPC_SPAWN_Y = 104.0;
+    private static final double NPC_SPAWN_Y = 106.0;
 
     private IslandGenerator() {
     }
