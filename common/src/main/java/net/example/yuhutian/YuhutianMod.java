@@ -1,6 +1,6 @@
 package net.example.yuhutian;
 
-import dev.architectury.registry.DeferredRegister;
+import dev.architectury.registry.registries.DeferredRegister;
 import dev.architectury.registry.level.entity.EntityAttributeRegistry;
 import net.example.yuhutian.entity.IslandNPCEntity;
 import net.example.yuhutian.entity.ModEntities;

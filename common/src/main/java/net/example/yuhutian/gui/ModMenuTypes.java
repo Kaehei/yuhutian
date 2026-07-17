@@ -1,6 +1,6 @@
 package net.example.yuhutian.gui;
 
-import dev.architectury.registry.DeferredRegister;
+import dev.architectury.registry.registries.DeferredRegister;
 import dev.architectury.registry.registries.RegistrySupplier;
 import net.example.yuhutian.YuhutianMod;
 import net.minecraft.core.registries.BuiltInRegistries;

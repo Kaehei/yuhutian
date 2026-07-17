@@ -1,7 +1,6 @@
 package net.example.yuhutian.events;
 
-import dev.architectury.event.events.common.AttackBlockCallback;
-import dev.architectury.event.events.common.UseBlockCallback;
+import dev.architectury.event.events.common.InteractionEvent;
 import net.example.yuhutian.YuhutianDimension;
 import net.example.yuhutian.world.IslandInfo;
 import net.example.yuhutian.world.IslandSavedData;
@@ -22,6 +21,11 @@ import java.util.UUID;
  * 在玉壶天维度中，拦截所有方块的破坏和交互操作。
  * 仅允许空岛主人或其信任列表中的玩家进行操作，否则拒绝并发送红字提示。
  * </p>
+ * <p>
+ * Architectury 13.x 移除了 AttackBlockCallback / UseBlockCallback，
+ * 改用 InteractionEvent.LEFT_CLICK_BLOCK / RIGHT_CLICK_BLOCK。
+ * 回调签名不再包含 Level 参数，须通过 player.level() 获取。
+ * </p>
  */
 public final class IslandProtectionHandler {
 
@@ -34,17 +38,18 @@ public final class IslandProtectionHandler {
      */
     public static void register() {
         // 拦截方块破坏（左键挖掘）
-        AttackBlockCallback.EVENT.register((player, level, hand, pos, direction) -> {
+        InteractionEvent.LEFT_CLICK_BLOCK.register((player, hand, pos, direction) -> {
+            Level level = player.level();
             if (!isYuhutianDimension(level)) return InteractionResult.PASS;
             if (level.isClientSide()) return InteractionResult.PASS;
             return checkPermission(player, level, pos) ? InteractionResult.PASS : InteractionResult.FAIL;
         });
 
         // 拦截方块交互（右键使用，包括开门、开箱、放置方块等）
-        UseBlockCallback.EVENT.register((player, level, hand, hitResult) -> {
+        InteractionEvent.RIGHT_CLICK_BLOCK.register((player, hand, pos, direction) -> {
+            Level level = player.level();
             if (!isYuhutianDimension(level)) return InteractionResult.PASS;
             if (level.isClientSide()) return InteractionResult.PASS;
-            BlockPos pos = hitResult.getBlockPos();
             return checkPermission(player, level, pos) ? InteractionResult.PASS : InteractionResult.FAIL;
         });
     }
