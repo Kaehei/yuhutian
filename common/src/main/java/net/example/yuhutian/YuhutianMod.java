@@ -29,26 +29,28 @@ public class YuhutianMod {
     public static final DeferredRegister<CreativeModeTab> CREATIVE_TABS =
             DeferredRegister.create(MOD_ID, Registries.CREATIVE_MODE_TAB);
 
-    /** 模组物品注册引用，用于创造栏图标 */
+    /** 玉壶天物品注册引用，用于创造栏图标和 displayItems */
     private static final ResourceLocation YU_HU_TIAN_ID =
             ResourceLocation.fromNamespaceAndPath(MOD_ID, "yu_hu_tian");
+
+    public static final RegistrySupplier<Item> YU_HU_TIAN_ITEM =
+            ITEMS.register(YU_HU_TIAN_ID,
+                    () -> new YuHuTianItem(new Item.Properties().stacksTo(1)));
 
     public static final RegistrySupplier<CreativeModeTab> YUHUTIAN_TAB =
             CREATIVE_TABS.register(
                     ResourceLocation.fromNamespaceAndPath(MOD_ID, "main"),
                     () -> CreativeModeTab.builder(CreativeModeTab.Row.TOP, 0)
                             .title(Component.translatable("itemGroup.yuhutian"))
-                            .icon(() -> new ItemStack(ITEMS.get(YU_HU_TIAN_ID)))
+                            .icon(() -> new ItemStack(YU_HU_TIAN_ITEM.get()))
                             .displayItems((params, output) -> {
-                                output.accept(ITEMS.get(YU_HU_TIAN_ID));
+                                output.accept(YU_HU_TIAN_ITEM.get());
                             })
                             .build()
             );
 
     public static void init() {
         // ===== 注册物品 =====
-        ITEMS.register(YU_HU_TIAN_ID,
-                () -> new YuHuTianItem(new Item.Properties().stacksTo(1)));
         ITEMS.register();
 
         // ===== 注册创造模式物品栏 =====
