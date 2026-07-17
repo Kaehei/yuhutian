@@ -1,6 +1,7 @@
 package net.example.yuhutian;
 
 import dev.architectury.registry.registries.DeferredRegister;
+import dev.architectury.registry.registries.RegistrySupplier;
 import dev.architectury.registry.level.entity.EntityAttributeRegistry;
 import net.example.yuhutian.entity.IslandNPCEntity;
 import net.example.yuhutian.entity.ModEntities;
@@ -9,8 +10,11 @@ import net.example.yuhutian.gui.ModMenuTypes;
 import net.example.yuhutian.item.YuHuTianItem;
 import net.example.yuhutian.network.NetworkInit;
 import net.minecraft.core.registries.Registries;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
 
 /**
  * 玉壶天模组主类。
@@ -22,11 +26,33 @@ public class YuhutianMod {
     public static final DeferredRegister<Item> ITEMS =
             DeferredRegister.create(MOD_ID, Registries.ITEM);
 
+    public static final DeferredRegister<CreativeModeTab> CREATIVE_TABS =
+            DeferredRegister.create(MOD_ID, Registries.CREATIVE_MODE_TAB);
+
+    /** 模组物品注册引用，用于创造栏图标 */
+    private static final ResourceLocation YU_HU_TIAN_ID =
+            ResourceLocation.fromNamespaceAndPath(MOD_ID, "yu_hu_tian");
+
+    public static final RegistrySupplier<CreativeModeTab> YUHUTIAN_TAB =
+            CREATIVE_TABS.register(
+                    ResourceLocation.fromNamespaceAndPath(MOD_ID, "main"),
+                    () -> CreativeModeTab.builder(CreativeModeTab.Row.TOP, 0)
+                            .title(Component.translatable("itemGroup.yuhutian"))
+                            .icon(() -> new ItemStack(ITEMS.get(YU_HU_TIAN_ID)))
+                            .displayItems((params, output) -> {
+                                output.accept(ITEMS.get(YU_HU_TIAN_ID));
+                            })
+                            .build()
+            );
+
     public static void init() {
         // ===== 注册物品 =====
-        ITEMS.register(ResourceLocation.fromNamespaceAndPath(MOD_ID, "yu_hu_tian"),
+        ITEMS.register(YU_HU_TIAN_ID,
                 () -> new YuHuTianItem(new Item.Properties().stacksTo(1)));
         ITEMS.register();
+
+        // ===== 注册创造模式物品栏 =====
+        CREATIVE_TABS.register();
 
         // ===== 注册实体类型 =====
         ModEntities.ENTITY_TYPES.register();
