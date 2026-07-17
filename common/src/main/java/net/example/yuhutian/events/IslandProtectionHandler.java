@@ -1,8 +1,8 @@
 package net.example.yuhutian.events;
 
 import dev.architectury.event.EventResult;
-import dev.architectury.event.events.common.AttackEntityEvent;
 import dev.architectury.event.events.common.InteractionEvent;
+import dev.architectury.event.events.common.PlayerEvent;
 import net.example.yuhutian.YuhutianDimension;
 import net.example.yuhutian.entity.IslandNPCEntity;
 import net.example.yuhutian.world.IslandInfo;
@@ -57,8 +57,7 @@ public final class IslandProtectionHandler {
         });
 
         // 拦截实体攻击（禁止非主人攻击空岛 NPC）
-        AttackEntityEvent.EVENT.register((player, target, hand) -> {
-            Level level = player.level();
+        PlayerEvent.ATTACK_ENTITY.register((player, level, target, hand, result) -> {
             if (!isYuhutianDimension(level)) return EventResult.pass();
             if (level.isClientSide()) return EventResult.pass();
             if (!(target instanceof IslandNPCEntity)) return EventResult.pass();
