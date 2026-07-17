@@ -5,8 +5,6 @@ import net.example.yuhutian.YuhutianDimension;
 import net.example.yuhutian.gui.IslandManagementMenu;
 import net.example.yuhutian.world.IslandInfo;
 import net.example.yuhutian.world.IslandSavedData;
-import net.fabricmc.api.EnvType;
-import net.fabricmc.api.Environment;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import org.slf4j.Logger;
@@ -59,7 +57,6 @@ public final class NetworkInit {
      * 注册所有 S2C 网络包接收器（仅客户端调用）。
      * 处理服务端推送的空岛管理面板数据。
      */
-    @Environment(EnvType.CLIENT)
     public static void registerS2CPackets() {
         NetworkManager.registerReceiver(NetworkManager.s2c(),
                 OpenIslandPayload.TYPE, OpenIslandPayload.STREAM_CODEC,
