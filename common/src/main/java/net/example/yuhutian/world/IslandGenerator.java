@@ -5,7 +5,9 @@ import net.example.yuhutian.entity.IslandNPCEntity;
 import net.example.yuhutian.entity.ModEntities;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Vec3i;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.NbtAccounter;
 import net.minecraft.nbt.NbtIo;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
@@ -156,11 +158,11 @@ public final class IslandGenerator {
             }
 
             try (InputStream stream = resourceOpt.get().open()) {
-                CompoundTag tag = NbtIo.readCompressed(stream);
+                CompoundTag tag = NbtIo.readCompressed(stream, NbtAccounter.unlimitedHeap());
                 LOGGER.info("[yuhutian] Direct load: NBT loaded successfully, keys: {}", tag.getAllKeys());
 
                 StructureTemplate template = new StructureTemplate();
-                template.load(level.registryAccess(), tag);
+                template.load(level.registryAccess().lookupOrThrow(Registries.BLOCK), tag);
                 LOGGER.info("[yuhutian] Direct load: StructureTemplate loaded, size: {}", template.getSize());
 
                 return placeStructure(level, template, islandX, islandZ);
