@@ -9,9 +9,9 @@ displayName = "玉壶天"
 description = "玉壶天 —— 自定义虚空维度与传送物品"
 
 [[dependencies.yuhutian]]
-modId = "forge"
+modId = "neoforge"
 mandatory = true
-versionRange = "[52,)"
+versionRange = "[21.1,)"
 ordering = "NONE"
 side = "BOTH"
 
