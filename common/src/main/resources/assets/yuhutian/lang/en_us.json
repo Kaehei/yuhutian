@@ -1,0 +1,15 @@
+{
+  "item.yuhutian.yu_hu_tian": "Yu Hu Tian",
+  "entity.yuhutian.island_npc": "Island Manager",
+  "container.yuhutian.island_management": "Island Management",
+  "gui.yuhutian.add_friend": "Add",
+  "gui.yuhutian.remove_friend": "Remove",
+  "gui.yuhutian.trusted_players": "Trusted Players:",
+  "gui.yuhutian.input_name": "Enter player name",
+  "gui.yuhutian.no_owner": "You are not the owner of this island.",
+  "gui.yuhutian.no_permission": "You do not have permission to interact with this island!",
+  "gui.yuhutian.friend_added": "Added %s to the trusted list.",
+  "gui.yuhutian.friend_removed": "Removed player from the trusted list.",
+  "gui.yuhutian.player_not_found": "Player not found: %s",
+  "gui.yuhutian.cannot_add_self": "Cannot add yourself as a friend!"
+}

@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "id": "yuhutian",
+  "version": "${version}",
+  "name": "玉壶天",
+  "description": "玉壶天 —— 自定义虚空维度与传送物品",
+  "authors": [
+    "kaehei"
+  ],
+  "contact": {},
+  "license": "All-Rights-Reserved",
+  "icon": "assets/yuhutian/textures/item/yu_hu_tian.png",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "net.example.yuhutian.fabric.YuhutianFabric"
+    ],
+    "client": [
+      "net.example.yuhutian.fabric.client.YuhutianFabricClient"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.15.0",
+    "minecraft": "~1.21.1",
+    "java": ">=21",
+    "architectury": ">=13.0.0"
+  }
+}

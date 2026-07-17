@@ -1,0 +1,15 @@
+{
+  "item.yuhutian.yu_hu_tian": "玉壶天",
+  "entity.yuhutian.island_npc": "空岛管理员",
+  "container.yuhutian.island_management": "空岛管理面板",
+  "gui.yuhutian.add_friend": "添加",
+  "gui.yuhutian.remove_friend": "移除",
+  "gui.yuhutian.trusted_players": "信任玩家:",
+  "gui.yuhutian.input_name": "输入玩家名",
+  "gui.yuhutian.no_owner": "你不是这个空岛的主人，无法打开管理面板。",
+  "gui.yuhutian.no_permission": "你没有该空岛的交互权限！",
+  "gui.yuhutian.friend_added": "已添加 %s 到信任列表。",
+  "gui.yuhutian.friend_removed": "已从信任列表中移除该玩家。",
+  "gui.yuhutian.player_not_found": "找不到玩家: %s",
+  "gui.yuhutian.cannot_add_self": "不能添加自己为好友！"
+}

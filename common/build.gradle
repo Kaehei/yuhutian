@@ -1,0 +1,12 @@
+plugins {
+    id "dev.architectury.loom"
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${rootProject.minecraft_version}"
+    mappings loom.layered() {
+        officialMojangMappings()
+        parchment("org.parchmentmc.data:parchment-${rootProject.parchment_version}@zip")
+    }
+    modApi "dev.architectury:architectury:${rootProject.architectury_version}"
+}

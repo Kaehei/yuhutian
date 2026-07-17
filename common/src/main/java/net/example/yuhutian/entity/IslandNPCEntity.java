@@ -1,0 +1,143 @@
+package net.example.yuhutian.entity;
+
+import net.example.yuhutian.YuhutianDimension;
+import net.example.yuhutian.gui.IslandManagementMenu;
+import net.example.yuhutian.world.IslandInfo;
+import net.example.yuhutian.world.IslandSavedData;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.MenuProvider;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.PathfinderMob;
+import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.ai.goal.LookAtPlayerGoal;
+import net.minecraft.world.entity.ai.goal.RandomLookAroundGoal;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.level.Level;
+
+import java.util.Map;
+import java.util.UUID;
+
+/**
+ * 空岛 NPC 实体。
+ * <p>
+ * 继承自 {@link PathfinderMob}，拥有基础的注视 AI（看向玩家 + 随机转头），
+ * 但不具备移动 AI，因此会始终站在原地。
+ * </p>
+ * <p>
+ * 右键交互：当空岛主人右键点击 NPC 时，打开空岛管理面板 GUI。
+ * </p>
+ */
+public class IslandNPCEntity extends PathfinderMob {
+
+    public IslandNPCEntity(EntityType<? extends PathfinderMob> entityType, Level level) {
+        super(entityType, level);
+    }
+
+    @Override
+    protected void registerGoals() {
+        this.goalSelector.addGoal(6, new LookAtPlayerGoal(this, Player.class, 6.0F));
+        this.goalSelector.addGoal(7, new RandomLookAroundGoal(this));
+    }
+
+    public static AttributeSupplier.Builder createAttributes() {
+        return PathfinderMob.createMobAttributes()
+                .add(Attributes.MAX_HEALTH, 20.0D)
+                .add(Attributes.MOVEMENT_SPEED, 0.0D);
+    }
+
+    /**
+     * 右键交互处理。
+     * 仅当交互玩家是该空岛的主人时，才打开管理面板 GUI。
+     */
+    @Override
+    public InteractionResult interact(Player player, InteractionHand hand) {
+        if (this.level().isClientSide()) {
+            return InteractionResult.SUCCESS;
+        }
+
+        if (!(player instanceof ServerPlayer serverPlayer)) {
+            return InteractionResult.PASS;
+        }
+
+        // 查找当前 NPC 所在空岛的主人
+        ServerLevel yuhutianLevel = serverPlayer.getServer().getLevel(YuhutianDimension.YUHUTIAN_LEVEL);
+        if (yuhutianLevel == null || this.level() != yuhutianLevel) {
+            return InteractionResult.PASS;
+        }
+
+        int npcX = (int) this.getX();
+        IslandSavedData data = IslandSavedData.getOrCreate(yuhutianLevel);
+
+        // 根据 NPC 位置查找所属空岛
+        UUID ownerUuid = findIslandOwner(data, npcX);
+        if (ownerUuid == null) {
+            return InteractionResult.PASS;
+        }
+
+        // 检查交互者是否是空岛主人
+        if (!player.getUUID().equals(ownerUuid)) {
+            player.displayClientMessage(
+                    Component.literal("§c你不是这个空岛的主人，无法打开管理面板。"), false);
+            return InteractionResult.FAIL;
+        }
+
+        // 查找空岛信息
+        IslandInfo island = data.getIsland(ownerUuid);
+        if (island == null) {
+            return InteractionResult.PASS;
+        }
+
+        // 打开管理面板 GUI
+        serverPlayer.openMenu(new MenuProvider() {
+            @Override
+            public Component getDisplayName() {
+                return Component.literal("空岛管理面板");
+            }
+
+            @Override
+            public AbstractContainerMenu createMenu(int containerId, Inventory inventory, Player menuPlayer) {
+                return new IslandManagementMenu(containerId, menuPlayer,
+                        island.getX(), island.getZ());
+            }
+        }, buf -> {
+            // 写入额外数据同步到客户端
+            buf.writeInt(island.getX());
+            buf.writeInt(island.getZ());
+            // 查找主人名称
+            String ownerName = "Unknown";
+            ServerPlayer ownerPlayer = serverPlayer.getServer().getPlayerList().getPlayer(ownerUuid);
+            if (ownerPlayer != null) {
+                ownerName = ownerPlayer.getName().getString();
+            }
+            buf.writeUtf(ownerName, 64);
+            // 写入信任玩家列表
+            buf.writeInt(island.getAllowedPlayers().size());
+            for (UUID uuid : island.getAllowedPlayers()) {
+                buf.writeUUID(uuid);
+            }
+        });
+
+        return InteractionResult.CONSUME;
+    }
+
+    /**
+     * 根据 NPC 的 X 坐标查找所属空岛的主人 UUID。
+     */
+    private UUID findIslandOwner(IslandSavedData data, int npcX) {
+        for (Map.Entry<UUID, IslandInfo> entry : data.getAllIslands().entrySet()) {
+            IslandInfo info = entry.getValue();
+            // 空岛占据 [centerX - 500, centerX + 500) 范围
+            if (npcX >= info.getX() - 500 && npcX < info.getX() + 500) {
+                return entry.getKey();
+            }
+        }
+        return null;
+    }
+}
