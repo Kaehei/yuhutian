@@ -1,17 +1,19 @@
 package net.example.yuhutian.forge.client;
 
+import net.example.yuhutian.client.IslandNPCRenderer;
+import net.example.yuhutian.entity.ModEntities;
 import net.example.yuhutian.gui.IslandManagementScreen;
 import net.example.yuhutian.gui.ModMenuTypes;
 import net.example.yuhutian.network.NetworkInit;
+import net.minecraft.client.renderer.entity.EntityRenderers;
 import net.neoforged.api.distmarker.Dist;
-import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.neoforge.client.event.RegisterMenuScreensEvent;
 
 /**
  * NeoForge 客户端初始化器。
- * 在 RegisterMenuScreensEvent 中注册 Screen 工厂（NeoForge 1.21.1 中 MenuScreens.register 为 private）。
- * 在 FMLClientSetupEvent 中注册 S2C 网络包。
+ * 在 RegisterMenuScreensEvent 中注册 Screen 工厂。
+ * 在 FMLClientSetupEvent 中注册实体渲染器和 S2C 网络包。
  */
 @Mod(value = "yuhutian", dist = Dist.CLIENT)
 public class YuhutianForgeClient {
@@ -27,6 +29,7 @@ public class YuhutianForgeClient {
 
     private void onClientSetup(net.neoforged.fml.event.lifecycle.FMLClientSetupEvent event) {
         event.enqueueWork(() -> {
+            EntityRenderers.register(ModEntities.ISLAND_NPC.get(), IslandNPCRenderer::new);
             NetworkInit.registerS2CPackets();
         });
     }

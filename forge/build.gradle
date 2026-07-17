@@ -45,4 +45,8 @@ jar {
     from {
         configurations.shadowCommon.collect { it.isDirectory() ? it : zipTree(it) }
     }
+    from(project(":common").file("src/main/resources")) {
+        include "data/**"
+        include "assets/**"
+    }
 }
