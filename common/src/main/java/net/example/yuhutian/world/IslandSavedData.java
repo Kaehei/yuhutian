@@ -3,6 +3,7 @@ package net.example.yuhutian.world;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.datafix.DataFixTypes;
 import net.minecraft.world.level.saveddata.SavedData;
@@ -23,6 +24,7 @@ import java.util.UUID;
  * <ul>
  *   <li>{@code nextIslandIndex} — 下一个待分配的空岛索引</li>
  *   <li>{@code Map<UUID, IslandInfo>} — 玩家 UUID 到空岛信息的映射</li>
+ *   <li>{@code Map<UUID, ReturnPosition>} — 玩家传送前的位置（用于返回主世界）</li>
  * </ul>
  * </p>
  */
@@ -32,6 +34,40 @@ public class IslandSavedData extends SavedData {
 
     private int nextIslandIndex = 0;
     private final Map<UUID, IslandInfo> islands = new HashMap<>();
+    private final Map<UUID, ReturnPosition> returnPositions = new HashMap<>();
+
+    // ==================== 返回位置内部类 ====================
+
+    /**
+     * 记录玩家传送前的位置，用于返回。
+     */
+    public record ReturnPosition(
+            ResourceLocation dimension,
+            double x, double y, double z,
+            float yaw, float pitch
+    ) {
+        public CompoundTag toNbt() {
+            CompoundTag tag = new CompoundTag();
+            tag.putString("Dimension", dimension.toString());
+            tag.putDouble("X", x);
+            tag.putDouble("Y", y);
+            tag.putDouble("Z", z);
+            tag.putFloat("Yaw", yaw);
+            tag.putFloat("Pitch", pitch);
+            return tag;
+        }
+
+        public static ReturnPosition fromNbt(CompoundTag tag) {
+            return new ReturnPosition(
+                    ResourceLocation.parse(tag.getString("Dimension")),
+                    tag.getDouble("X"),
+                    tag.getDouble("Y"),
+                    tag.getDouble("Z"),
+                    tag.getFloat("Yaw"),
+                    tag.getFloat("Pitch")
+            );
+        }
+    }
 
     // ==================== 工厂方法 ====================
 
@@ -76,6 +112,16 @@ public class IslandSavedData extends SavedData {
             }
         }
 
+        if (tag.contains("ReturnPositions", CompoundTag.TAG_LIST)) {
+            ListTag returnTag = tag.getList("ReturnPositions", CompoundTag.TAG_COMPOUND);
+            for (int i = 0; i < returnTag.size(); i++) {
+                CompoundTag entryTag = returnTag.getCompound(i);
+                UUID uuid = entryTag.getUUID("UUID");
+                ReturnPosition pos = ReturnPosition.fromNbt(entryTag.getCompound("Position"));
+                data.returnPositions.put(uuid, pos);
+            }
+        }
+
         return data;
     }
 
@@ -99,6 +145,15 @@ public class IslandSavedData extends SavedData {
             islandsTag.add(entryTag);
         }
         tag.put("Islands", islandsTag);
+
+        ListTag returnTag = new ListTag();
+        for (Map.Entry<UUID, ReturnPosition> entry : returnPositions.entrySet()) {
+            CompoundTag entryTag = new CompoundTag();
+            entryTag.putUUID("UUID", entry.getKey());
+            entryTag.put("Position", entry.getValue().toNbt());
+            returnTag.add(entryTag);
+        }
+        tag.put("ReturnPositions", returnTag);
 
         return tag;
     }
@@ -160,5 +215,36 @@ public class IslandSavedData extends SavedData {
      */
     public Map<UUID, IslandInfo> getAllIslands() {
         return Collections.unmodifiableMap(islands);
+    }
+
+    // ==================== 返回位置 API ====================
+
+    /**
+     * 保存玩家传送前的位置。
+     *
+     * @param uuid 玩家 UUID
+     * @param pos  返回位置
+     */
+    public void setReturnPosition(UUID uuid, ReturnPosition pos) {
+        returnPositions.put(uuid, pos);
+    }
+
+    /**
+     * 获取玩家保存的返回位置。
+     *
+     * @param uuid 玩家 UUID
+     * @return 返回位置，若未保存则返回 null
+     */
+    public ReturnPosition getReturnPosition(UUID uuid) {
+        return returnPositions.get(uuid);
+    }
+
+    /**
+     * 移除玩家保存的返回位置（返回后调用）。
+     *
+     * @param uuid 玩家 UUID
+     */
+    public void removeReturnPosition(UUID uuid) {
+        returnPositions.remove(uuid);
     }
 }

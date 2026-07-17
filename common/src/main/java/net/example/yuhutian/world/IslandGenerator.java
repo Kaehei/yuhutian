@@ -36,10 +36,10 @@ public final class IslandGenerator {
             ResourceLocation.fromNamespaceAndPath(YuhutianMod.MOD_ID, "start_island");
 
     /** 结构放置的 Y 基准坐标 */
-    private static final int STRUCTURE_Y = 60;
+    private static final int STRUCTURE_Y = 100;
 
     /** NPC 生成位置相对于岛屿中心的 Y 偏移（岛屿表面） */
-    private static final double NPC_SPAWN_Y = 64.0;
+    private static final double NPC_SPAWN_Y = 104.0;
 
     private IslandGenerator() {
     }
@@ -108,6 +108,7 @@ public final class IslandGenerator {
         if (npc != null) {
             npc.moveTo(islandX + 0.5, NPC_SPAWN_Y, islandZ + 0.5, 0.0F, 0.0F);
             npc.setPersistenceRequired();
+            npc.setInvulnerable(true);
             level.addFreshEntity(npc);
             LOGGER.info("[yuhutian] Spawned Island NPC at ({}, {}, {})",
                     islandX + 0.5, NPC_SPAWN_Y, islandZ + 0.5);
