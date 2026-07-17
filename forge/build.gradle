@@ -42,6 +42,7 @@ dependencies {
 }
 
 jar {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     from {
         configurations.shadowCommon.collect { it.isDirectory() ? it : zipTree(it) }
     }
