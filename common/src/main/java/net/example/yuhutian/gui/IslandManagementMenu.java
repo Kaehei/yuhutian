@@ -3,7 +3,6 @@ package net.example.yuhutian.gui;
 import net.example.yuhutian.YuhutianDimension;
 import net.example.yuhutian.world.IslandInfo;
 import net.example.yuhutian.world.IslandSavedData;
-import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
@@ -21,8 +20,18 @@ import java.util.UUID;
  * 不包含物品栏格子，是一个纯功能性面板。
  * 持有当前空岛的基本信息和信任玩家列表，供客户端 Screen 渲染使用。
  * </p>
+ * <p>
+ * MC 1.21.1 的 ServerPlayer.openMenu 不再支持 Consumer&lt;FriendlyByteBuf&gt; 参数，
+ * 因此通过静态缓冲区 {@link #pendingData} 接收 S2C 包传来的岛屿数据。
+ * </p>
  */
 public class IslandManagementMenu extends AbstractContainerMenu {
+
+    /**
+     * 客户端静态缓冲区。
+     * S2C 包处理器在 openMenu 之前写入数据，客户端构造器读取后清空。
+     */
+    public static Object[] pendingData = null;
 
     private final int islandX;
     private final int islandZ;
@@ -58,22 +67,26 @@ public class IslandManagementMenu extends AbstractContainerMenu {
     }
 
     /**
-     * 客户端构造：从 FriendlyByteBuf 反序列化。
+     * 客户端构造：从静态缓冲区读取 S2C 包预存的数据。
      * <p>
-     * 注意：1.21.1 的 openMenu 机制中，服务端写入的 FriendlyByteBuf 在客户端
-     * 实际上是 RegistryFriendlyByteBuf（FriendlyByteBuf 的子类），因此可以直接使用。
+     * MC 1.21.1 移除了 openMenu 的 buffer consumer 参数，
+     * 因此在 ModMenuTypes 中注册的空构造器会传入一个空 FriendlyByteBuf，
+     * 我们忽略它，改为从 pendingData 读取。
      * </p>
      */
-    public IslandManagementMenu(int containerId, Player player, FriendlyByteBuf buf) {
+    public IslandManagementMenu(int containerId, Player player, net.minecraft.network.FriendlyByteBuf buf) {
         super(ModMenuTypes.ISLAND_MANAGEMENT.get(), containerId);
-        this.islandX = buf.readInt();
-        this.islandZ = buf.readInt();
-        this.ownerName = buf.readUtf(64);
-
-        int count = buf.readInt();
-        this.allowedPlayers = new ArrayList<>(count);
-        for (int i = 0; i < count; i++) {
-            this.allowedPlayers.add(buf.readUUID());
+        if (pendingData != null) {
+            this.islandX = (int) pendingData[0];
+            this.islandZ = (int) pendingData[1];
+            this.ownerName = (String) pendingData[2];
+            this.allowedPlayers = new ArrayList<>((List<UUID>) pendingData[3]);
+            pendingData = null;
+        } else {
+            this.islandX = 0;
+            this.islandZ = 0;
+            this.ownerName = "Unknown";
+            this.allowedPlayers = new ArrayList<>();
         }
     }
 

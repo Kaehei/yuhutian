@@ -3,7 +3,7 @@ package net.example.yuhutian.gui;
 import dev.architectury.registry.registries.DeferredRegister;
 import dev.architectury.registry.registries.RegistrySupplier;
 import net.example.yuhutian.YuhutianMod;
-import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.flag.FeatureFlags;
 import net.minecraft.world.inventory.MenuType;
@@ -19,7 +19,7 @@ import net.minecraft.world.inventory.MenuType;
 public final class ModMenuTypes {
 
     public static final DeferredRegister<MenuType<?>> MENU_TYPES =
-            DeferredRegister.create(YuhutianMod.MOD_ID, BuiltInRegistries.MENU);
+            DeferredRegister.create(YuhutianMod.MOD_ID, Registries.MENU);
 
     public static final RegistrySupplier<MenuType<IslandManagementMenu>> ISLAND_MANAGEMENT =
             MENU_TYPES.register(

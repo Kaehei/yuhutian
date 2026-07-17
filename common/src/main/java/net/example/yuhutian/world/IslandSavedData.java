@@ -4,6 +4,7 @@ import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.util.datafix.DataFixTypes;
 import net.minecraft.world.level.saveddata.SavedData;
 
 import java.util.Collections;
@@ -39,7 +40,7 @@ public class IslandSavedData extends SavedData {
      * loader 签名为 BiFunction&lt;CompoundTag, HolderLookup.Provider, T&gt;。
      */
     public static final SavedData.Factory<IslandSavedData> FACTORY =
-            new SavedData.Factory<>(IslandSavedData::new, IslandSavedData::load);
+            new SavedData.Factory<>(IslandSavedData::new, IslandSavedData::load, DataFixTypes.LEVEL);
 
     /**
      * 从 ServerLevel 获取或创建该维度的空岛数据。

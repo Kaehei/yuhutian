@@ -3,7 +3,7 @@ package net.example.yuhutian.entity;
 import dev.architectury.registry.registries.DeferredRegister;
 import dev.architectury.registry.registries.RegistrySupplier;
 import net.example.yuhutian.YuhutianMod;
-import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MobCategory;
@@ -15,7 +15,7 @@ import net.minecraft.world.entity.MobCategory;
 public final class ModEntities {
 
     public static final DeferredRegister<EntityType<?>> ENTITY_TYPES =
-            DeferredRegister.create(YuhutianMod.MOD_ID, BuiltInRegistries.ENTITY_TYPE);
+            DeferredRegister.create(YuhutianMod.MOD_ID, Registries.ENTITY_TYPE);
 
     /**
      * 空岛 NPC 实体类型。

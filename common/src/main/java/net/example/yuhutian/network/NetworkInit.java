@@ -2,8 +2,11 @@ package net.example.yuhutian.network;
 
 import dev.architectury.networking.NetworkManager;
 import net.example.yuhutian.YuhutianDimension;
+import net.example.yuhutian.gui.IslandManagementMenu;
 import net.example.yuhutian.world.IslandInfo;
 import net.example.yuhutian.world.IslandSavedData;
+import net.fabricmc.api.EnvType;
+import net.fabricmc.api.Environment;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import org.slf4j.Logger;
@@ -34,8 +37,7 @@ public final class NetworkInit {
         NetworkManager.registerReceiver(NetworkManager.c2s(),
                 AddFriendPayload.TYPE, AddFriendPayload.STREAM_CODEC,
                 (payload, context) -> {
-                    ServerPlayer player = context.getPlayer();
-                    if (player == null) return;
+                    if (!(context.getPlayer() instanceof ServerPlayer player)) return;
                     // 确保在主线程执行，避免并发修改世界数据
                     player.getServer().execute(() -> {
                         handleAddFriend(player, payload.playerName());
@@ -46,11 +48,28 @@ public final class NetworkInit {
         NetworkManager.registerReceiver(NetworkManager.c2s(),
                 RemoveFriendPayload.TYPE, RemoveFriendPayload.STREAM_CODEC,
                 (payload, context) -> {
-                    ServerPlayer player = context.getPlayer();
-                    if (player == null) return;
+                    if (!(context.getPlayer() instanceof ServerPlayer player)) return;
                     player.getServer().execute(() -> {
                         handleRemoveFriend(player, payload.playerUuid());
                     });
+                });
+    }
+
+    /**
+     * 注册所有 S2C 网络包接收器（仅客户端调用）。
+     * 处理服务端推送的空岛管理面板数据。
+     */
+    @Environment(EnvType.CLIENT)
+    public static void registerS2CPackets() {
+        NetworkManager.registerReceiver(NetworkManager.s2c(),
+                OpenIslandPayload.TYPE, OpenIslandPayload.STREAM_CODEC,
+                (payload, context) -> {
+                    IslandManagementMenu.pendingData = new Object[]{
+                            payload.islandX(),
+                            payload.islandZ(),
+                            payload.ownerName(),
+                            payload.allowedPlayers()
+                    };
                 });
     }
 

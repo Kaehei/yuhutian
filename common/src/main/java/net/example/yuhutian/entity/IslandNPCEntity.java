@@ -1,7 +1,9 @@
 package net.example.yuhutian.entity;
 
+import dev.architectury.networking.NetworkManager;
 import net.example.yuhutian.YuhutianDimension;
 import net.example.yuhutian.gui.IslandManagementMenu;
+import net.example.yuhutian.network.OpenIslandPayload;
 import net.example.yuhutian.world.IslandInfo;
 import net.example.yuhutian.world.IslandSavedData;
 import net.minecraft.network.chat.Component;
@@ -21,6 +23,8 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.level.Level;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -32,6 +36,7 @@ import java.util.UUID;
  * </p>
  * <p>
  * 右键交互：当空岛主人右键点击 NPC 时，打开空岛管理面板 GUI。
+ * 1.21.1 中 Mob.interact 为 final，须覆写 mobInteract。
  * </p>
  */
 public class IslandNPCEntity extends PathfinderMob {
@@ -54,10 +59,11 @@ public class IslandNPCEntity extends PathfinderMob {
 
     /**
      * 右键交互处理。
+     * 1.21.1 中 Mob.interact() 为 final，覆写 mobInteract() 代替。
      * 仅当交互玩家是该空岛的主人时，才打开管理面板 GUI。
      */
     @Override
-    public InteractionResult interact(Player player, InteractionHand hand) {
+    protected InteractionResult mobInteract(Player player, InteractionHand hand) {
         if (this.level().isClientSide()) {
             return InteractionResult.SUCCESS;
         }
@@ -94,7 +100,19 @@ public class IslandNPCEntity extends PathfinderMob {
             return InteractionResult.PASS;
         }
 
-        // 打开管理面板 GUI
+        // 1.21.1: openMenu 不再支持 Consumer<FriendlyByteBuf>，
+        // 因此先通过 S2C 包将岛屿数据同步到客户端
+        String ownerName = "Unknown";
+        ServerPlayer ownerPlayer = serverPlayer.getServer().getPlayerList().getPlayer(ownerUuid);
+        if (ownerPlayer != null) {
+            ownerName = ownerPlayer.getName().getString();
+        }
+
+        List<UUID> allowedList = new ArrayList<>(island.getAllowedPlayers());
+        NetworkManager.sendToPlayer(serverPlayer,
+                new OpenIslandPayload(island.getX(), island.getZ(), ownerName, allowedList));
+
+        // 打开管理面板 GUI（无额外 buffer 数据）
         serverPlayer.openMenu(new MenuProvider() {
             @Override
             public Component getDisplayName() {
@@ -105,22 +123,6 @@ public class IslandNPCEntity extends PathfinderMob {
             public AbstractContainerMenu createMenu(int containerId, Inventory inventory, Player menuPlayer) {
                 return new IslandManagementMenu(containerId, menuPlayer,
                         island.getX(), island.getZ());
-            }
-        }, buf -> {
-            // 写入额外数据同步到客户端
-            buf.writeInt(island.getX());
-            buf.writeInt(island.getZ());
-            // 查找主人名称
-            String ownerName = "Unknown";
-            ServerPlayer ownerPlayer = serverPlayer.getServer().getPlayerList().getPlayer(ownerUuid);
-            if (ownerPlayer != null) {
-                ownerName = ownerPlayer.getName().getString();
-            }
-            buf.writeUtf(ownerName, 64);
-            // 写入信任玩家列表
-            buf.writeInt(island.getAllowedPlayers().size());
-            for (UUID uuid : island.getAllowedPlayers()) {
-                buf.writeUUID(uuid);
             }
         });
 

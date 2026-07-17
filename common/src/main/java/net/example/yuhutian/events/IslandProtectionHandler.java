@@ -1,5 +1,6 @@
 package net.example.yuhutian.events;
 
+import dev.architectury.event.EventResult;
 import dev.architectury.event.events.common.InteractionEvent;
 import net.example.yuhutian.YuhutianDimension;
 import net.example.yuhutian.world.IslandInfo;
@@ -8,7 +9,6 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 
@@ -24,7 +24,8 @@ import java.util.UUID;
  * <p>
  * Architectury 13.x 移除了 AttackBlockCallback / UseBlockCallback，
  * 改用 InteractionEvent.LEFT_CLICK_BLOCK / RIGHT_CLICK_BLOCK。
- * 回调签名不再包含 Level 参数，须通过 player.level() 获取。
+ * 回调返回 EventResult（而非 InteractionResult）：
+ * pass() = 不干预，interruptFalse() = 取消操作。
  * </p>
  */
 public final class IslandProtectionHandler {
@@ -40,17 +41,17 @@ public final class IslandProtectionHandler {
         // 拦截方块破坏（左键挖掘）
         InteractionEvent.LEFT_CLICK_BLOCK.register((player, hand, pos, direction) -> {
             Level level = player.level();
-            if (!isYuhutianDimension(level)) return InteractionResult.PASS;
-            if (level.isClientSide()) return InteractionResult.PASS;
-            return checkPermission(player, level, pos) ? InteractionResult.PASS : InteractionResult.FAIL;
+            if (!isYuhutianDimension(level)) return EventResult.pass();
+            if (level.isClientSide()) return EventResult.pass();
+            return checkPermission(player, level, pos) ? EventResult.pass() : EventResult.interruptFalse();
         });
 
         // 拦截方块交互（右键使用，包括开门、开箱、放置方块等）
         InteractionEvent.RIGHT_CLICK_BLOCK.register((player, hand, pos, direction) -> {
             Level level = player.level();
-            if (!isYuhutianDimension(level)) return InteractionResult.PASS;
-            if (level.isClientSide()) return InteractionResult.PASS;
-            return checkPermission(player, level, pos) ? InteractionResult.PASS : InteractionResult.FAIL;
+            if (!isYuhutianDimension(level)) return EventResult.pass();
+            if (level.isClientSide()) return EventResult.pass();
+            return checkPermission(player, level, pos) ? EventResult.pass() : EventResult.interruptFalse();
         });
     }
 

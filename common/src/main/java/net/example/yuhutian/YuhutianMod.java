@@ -8,7 +8,7 @@ import net.example.yuhutian.events.IslandProtectionHandler;
 import net.example.yuhutian.gui.ModMenuTypes;
 import net.example.yuhutian.item.YuHuTianItem;
 import net.example.yuhutian.network.NetworkInit;
-import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
 
@@ -20,7 +20,7 @@ public class YuhutianMod {
     public static final String MOD_ID = "yuhutian";
 
     public static final DeferredRegister<Item> ITEMS =
-            DeferredRegister.create(MOD_ID, BuiltInRegistries.ITEM);
+            DeferredRegister.create(MOD_ID, Registries.ITEM);
 
     public static void init() {
         // ===== 注册物品 =====
