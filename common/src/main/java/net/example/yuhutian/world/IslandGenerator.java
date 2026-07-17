@@ -5,6 +5,8 @@ import net.example.yuhutian.entity.IslandNPCEntity;
 import net.example.yuhutian.entity.ModEntities;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Vec3i;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.NbtIo;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.Blocks;
@@ -14,6 +16,8 @@ import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemp
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.Optional;
 
 /**
@@ -57,40 +61,37 @@ public final class IslandGenerator {
             }
         }
 
-        // 2. 加载并放置结构（带 try-catch 保护）
+        // 2. 加载并放置结构
         boolean structurePlaced = false;
         try {
             StructureTemplateManager templateManager = level.getStructureManager();
+
+            // 调试：检查 ResourceManager 是否能找到结构文件
+            var resourceManager = level.getServer().getResourceManager();
+            var resourceOpt = resourceManager.getResource(
+                    ResourceLocation.fromNamespaceAndPath(YuhutianMod.MOD_ID, "structures/start_island.nbt"));
+            LOGGER.info("[yuhutian] ResourceManager lookup for 'structures/start_island.nbt': {}",
+                    resourceOpt.isPresent() ? "FOUND" : "NOT FOUND");
+
+            // 尝试通过 StructureTemplateManager 加载
             Optional<StructureTemplate> templateOpt = templateManager.get(START_ISLAND_STRUCTURE);
 
             if (templateOpt.isPresent()) {
                 StructureTemplate template = templateOpt.get();
-                BlockPos placePos = new BlockPos(islandX, STRUCTURE_Y, islandZ);
-
-                // 居中放置：将结构中心对齐到空岛中心坐标
-                StructurePlaceSettings settings = new StructurePlaceSettings();
-                Vec3i structureSize = template.getSize();
-                BlockPos offset = new BlockPos(
-                        -(structureSize.getX() / 2),
-                        0,
-                        -(structureSize.getZ() / 2)
-                );
-                BlockPos actualPos = placePos.offset(offset);
-
-                template.placeInWorld(level, actualPos, actualPos, settings, level.getRandom(), 2);
-                LOGGER.info("[yuhutian] Placed start_island structure at ({}, {}, {})",
-                        actualPos.getX(), actualPos.getY(), actualPos.getZ());
-                structurePlaced = true;
+                structurePlaced = placeStructure(level, template, islandX, islandZ);
             } else {
-                LOGGER.warn("[yuhutian] Structure template '{}' not found (Optional empty), generating fallback platform",
+                LOGGER.warn("[yuhutian] StructureTemplateManager.get() returned empty for '{}'",
                         START_ISLAND_STRUCTURE);
+
+                // 后备方案：直接用 NbtIo 从 ResourceManager 加载
+                LOGGER.info("[yuhutian] Attempting direct NbtIo load as fallback...");
+                structurePlaced = loadAndPlaceDirectly(level, islandX, islandZ);
             }
         } catch (Exception e) {
-            LOGGER.error("[yuhutian] Failed to load structure template '{}': {}",
-                    START_ISLAND_STRUCTURE, e.getMessage(), e);
+            LOGGER.error("[yuhutian] Exception during structure loading: {}", e.getMessage(), e);
         }
 
-        // 如果结构加载失败，生成一个应急石砖平台，防止玩家掉入虚空
+        // 如果结构加载失败，生成应急石砖平台
         if (!structurePlaced) {
             LOGGER.info("[yuhutian] Generating fallback stone platform at ({}, {}, {})",
                     islandX, STRUCTURE_Y, islandZ);
@@ -113,6 +114,62 @@ public final class IslandGenerator {
         } else {
             LOGGER.warn("[yuhutian] Failed to spawn Island NPC at ({}, {}, {})",
                     islandX, NPC_SPAWN_Y, islandZ);
+        }
+    }
+
+    /**
+     * 放置结构模板。
+     */
+    private static boolean placeStructure(ServerLevel level, StructureTemplate template,
+                                          int islandX, int islandZ) {
+        try {
+            BlockPos placePos = new BlockPos(islandX, STRUCTURE_Y, islandZ);
+            StructurePlaceSettings settings = new StructurePlaceSettings();
+            Vec3i structureSize = template.getSize();
+            BlockPos offset = new BlockPos(
+                    -(structureSize.getX() / 2), 0, -(structureSize.getZ() / 2));
+            BlockPos actualPos = placePos.offset(offset);
+
+            template.placeInWorld(level, actualPos, actualPos, settings, level.getRandom(), 2);
+            LOGGER.info("[yuhutian] Placed start_island structure at ({}, {}, {})",
+                    actualPos.getX(), actualPos.getY(), actualPos.getZ());
+            return true;
+        } catch (Exception e) {
+            LOGGER.error("[yuhutian] Failed to place structure: {}", e.getMessage(), e);
+            return false;
+        }
+    }
+
+    /**
+     * 后备方案：直接用 NbtIo 从 ResourceManager 读取 NBT 并手动创建 StructureTemplate。
+     */
+    private static boolean loadAndPlaceDirectly(ServerLevel level, int islandX, int islandZ) {
+        try {
+            var resourceManager = level.getServer().getResourceManager();
+            var resourceOpt = resourceManager.getResource(
+                    ResourceLocation.fromNamespaceAndPath(YuhutianMod.MOD_ID, "structures/start_island.nbt"));
+
+            if (resourceOpt.isEmpty()) {
+                LOGGER.error("[yuhutian] Direct load: resource not found in ResourceManager");
+                return false;
+            }
+
+            try (InputStream stream = resourceOpt.get().open()) {
+                CompoundTag tag = NbtIo.readCompressed(stream);
+                LOGGER.info("[yuhutian] Direct load: NBT loaded successfully, keys: {}", tag.getAllKeys());
+
+                StructureTemplate template = new StructureTemplate();
+                template.load(level.registryAccess(), tag);
+                LOGGER.info("[yuhutian] Direct load: StructureTemplate loaded, size: {}", template.getSize());
+
+                return placeStructure(level, template, islandX, islandZ);
+            }
+        } catch (IOException e) {
+            LOGGER.error("[yuhutian] Direct load: IOException: {}", e.getMessage(), e);
+            return false;
+        } catch (Exception e) {
+            LOGGER.error("[yuhutian] Direct load: Exception: {}", e.getMessage(), e);
+            return false;
         }
     }
 
