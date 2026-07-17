@@ -17,7 +17,7 @@ import net.minecraft.resources.ResourceLocation;
 public class IslandNPCRenderer extends HumanoidMobRenderer<IslandNPCEntity, HumanoidModel<IslandNPCEntity>> {
 
     private static final ResourceLocation TEXTURE =
-            ResourceLocation.withDefaultNamespace("textures/entity/player/wide/steve.png");
+            ResourceLocation.fromNamespaceAndPath(YuhutianMod.MOD_ID, "textures/entity/island_npc.png");
 
     public IslandNPCRenderer(EntityRendererProvider.Context context) {
         super(context, new HumanoidModel<>(context.bakeLayer(ModelLayers.PLAYER)), 0.5F);
