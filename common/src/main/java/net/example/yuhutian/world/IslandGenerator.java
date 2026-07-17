@@ -7,6 +7,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Vec3i;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructurePlaceSettings;
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate;
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplateManager;
@@ -56,34 +57,47 @@ public final class IslandGenerator {
             }
         }
 
-        // 2. 加载并放置结构
-        StructureTemplateManager templateManager = level.getStructureManager();
-        Optional<StructureTemplate> templateOpt = templateManager.get(START_ISLAND_STRUCTURE);
+        // 2. 加载并放置结构（带 try-catch 保护）
+        boolean structurePlaced = false;
+        try {
+            StructureTemplateManager templateManager = level.getStructureManager();
+            Optional<StructureTemplate> templateOpt = templateManager.get(START_ISLAND_STRUCTURE);
 
-        if (templateOpt.isEmpty()) {
-            LOGGER.warn("[yuhutian] Structure template '{}' not found, skipping island generation",
-                    START_ISLAND_STRUCTURE);
-            return;
+            if (templateOpt.isPresent()) {
+                StructureTemplate template = templateOpt.get();
+                BlockPos placePos = new BlockPos(islandX, STRUCTURE_Y, islandZ);
+
+                // 居中放置：将结构中心对齐到空岛中心坐标
+                StructurePlaceSettings settings = new StructurePlaceSettings();
+                Vec3i structureSize = template.getSize();
+                BlockPos offset = new BlockPos(
+                        -(structureSize.getX() / 2),
+                        0,
+                        -(structureSize.getZ() / 2)
+                );
+                BlockPos actualPos = placePos.offset(offset);
+
+                template.placeInWorld(level, actualPos, actualPos, settings, level.getRandom(), 2);
+                LOGGER.info("[yuhutian] Placed start_island structure at ({}, {}, {})",
+                        actualPos.getX(), actualPos.getY(), actualPos.getZ());
+                structurePlaced = true;
+            } else {
+                LOGGER.warn("[yuhutian] Structure template '{}' not found (Optional empty), generating fallback platform",
+                        START_ISLAND_STRUCTURE);
+            }
+        } catch (Exception e) {
+            LOGGER.error("[yuhutian] Failed to load structure template '{}': {}",
+                    START_ISLAND_STRUCTURE, e.getMessage(), e);
         }
 
-        StructureTemplate template = templateOpt.get();
-        BlockPos placePos = new BlockPos(islandX, STRUCTURE_Y, islandZ);
+        // 如果结构加载失败，生成一个应急石砖平台，防止玩家掉入虚空
+        if (!structurePlaced) {
+            LOGGER.info("[yuhutian] Generating fallback stone platform at ({}, {}, {})",
+                    islandX, STRUCTURE_Y, islandZ);
+            generateFallbackPlatform(level, islandX, STRUCTURE_Y, islandZ);
+        }
 
-        // 居中放置：将结构中心对齐到空岛中心坐标
-        StructurePlaceSettings settings = new StructurePlaceSettings();
-        Vec3i structureSize = template.getSize();
-        BlockPos offset = new BlockPos(
-                -(structureSize.getX() / 2),
-                0,
-                -(structureSize.getZ() / 2)
-        );
-        BlockPos actualPos = placePos.offset(offset);
-
-        template.placeInWorld(level, actualPos, actualPos, settings, level.getRandom(), 2);
-        LOGGER.info("[yuhutian] Placed start_island structure at ({}, {}, {})",
-                actualPos.getX(), actualPos.getY(), actualPos.getZ());
-
-        // 3. 召唤空岛 NPC（仅在结构放置成功后）
+        // 3. 召唤空岛 NPC
         if (!ModEntities.ISLAND_NPC.isPresent()) {
             LOGGER.warn("[yuhutian] ISLAND_NPC entity type not yet registered, cannot spawn NPC");
             return;
@@ -92,7 +106,6 @@ public final class IslandGenerator {
         IslandNPCEntity npc = ModEntities.ISLAND_NPC.get().create(level);
         if (npc != null) {
             npc.moveTo(islandX + 0.5, NPC_SPAWN_Y, islandZ + 0.5, 0.0F, 0.0F);
-            // 1.21.1 持久化：确保 NPC 不会因距离被卸载
             npc.setPersistenceRequired();
             level.addFreshEntity(npc);
             LOGGER.info("[yuhutian] Spawned Island NPC at ({}, {}, {})",
@@ -100,6 +113,18 @@ public final class IslandGenerator {
         } else {
             LOGGER.warn("[yuhutian] Failed to spawn Island NPC at ({}, {}, {})",
                     islandX, NPC_SPAWN_Y, islandZ);
+        }
+    }
+
+    /**
+     * 应急平台：在指定坐标生成一个 7×7 的石砖平台，确保玩家不会掉入虚空。
+     */
+    private static void generateFallbackPlatform(ServerLevel level, int centerX, int y, int centerZ) {
+        for (int dx = -3; dx <= 3; dx++) {
+            for (int dz = -3; dz <= 3; dz++) {
+                level.setBlock(new BlockPos(centerX + dx, y, centerZ + dz),
+                        Blocks.STONE_BRICKS.defaultBlockState(), 2);
+            }
         }
     }
 }
