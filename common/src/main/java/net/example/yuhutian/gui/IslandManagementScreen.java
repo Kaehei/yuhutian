@@ -1,5 +1,6 @@
 package net.example.yuhutian.gui;
 
+import dev.architectury.networking.NetworkManager;
 import net.example.yuhutian.network.AddFriendPayload;
 import net.example.yuhutian.network.RemoveFriendPayload;
 import net.minecraft.client.gui.GuiGraphics;
@@ -8,7 +9,6 @@ import net.minecraft.client.gui.components.CycleButton;
 import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.protocol.common.ServerboundCustomPayloadPacket;
 import net.minecraft.world.entity.player.Inventory;
 
 import java.util.ArrayList;
@@ -102,18 +102,12 @@ public class IslandManagementScreen extends AbstractContainerScreen<IslandManage
     private void onAddClicked() {
         if (availablePlayerUuids.isEmpty()) return;
         if (playerDropdown == null) return;
-        if (this.minecraft != null && this.minecraft.getConnection() != null) {
-            UUID selectedUuid = playerDropdown.getValue();
-            this.minecraft.getConnection().send(
-                    new ServerboundCustomPayloadPacket(new AddFriendPayload(selectedUuid)));
-        }
+        UUID selectedUuid = playerDropdown.getValue();
+        NetworkManager.sendToServer(new AddFriendPayload(selectedUuid));
     }
 
     private void onRemoveClicked(UUID playerUuid) {
-        if (this.minecraft != null && this.minecraft.getConnection() != null) {
-            this.minecraft.getConnection().send(
-                    new ServerboundCustomPayloadPacket(new RemoveFriendPayload(playerUuid)));
-        }
+        NetworkManager.sendToServer(new RemoveFriendPayload(playerUuid));
     }
 
     @Override
