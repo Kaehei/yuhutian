@@ -6,6 +6,7 @@ import net.example.yuhutian.gui.IslandManagementMenu;
 import net.example.yuhutian.network.OpenIslandPayload;
 import net.example.yuhutian.world.IslandInfo;
 import net.example.yuhutian.world.IslandSavedData;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -24,6 +25,7 @@ import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.level.Level;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -68,6 +70,26 @@ public class IslandNPCEntity extends PathfinderMob {
             this.teleportTo(homeX, homeY, homeZ);
             this.setDeltaMovement(0, 0, 0);
             this.fallDistance = 0;
+        }
+    }
+
+    @Override
+    public void addAdditionalSaveData(CompoundTag tag) {
+        super.addAdditionalSaveData(tag);
+        if (!Double.isNaN(homeX)) {
+            tag.putDouble("HomeX", homeX);
+            tag.putDouble("HomeY", homeY);
+            tag.putDouble("HomeZ", homeZ);
+        }
+    }
+
+    @Override
+    public void readAdditionalSaveData(CompoundTag tag) {
+        super.readAdditionalSaveData(tag);
+        if (tag.contains("HomeX")) {
+            homeX = tag.getDouble("HomeX");
+            homeY = tag.getDouble("HomeY");
+            homeZ = tag.getDouble("HomeZ");
         }
     }
 
@@ -134,9 +156,17 @@ public class IslandNPCEntity extends PathfinderMob {
             ownerName = ownerPlayer.getName().getString();
         }
 
+        // 构建在线玩家列表（排除岛主本人）
+        Map<UUID, String> onlinePlayers = new LinkedHashMap<>();
+        for (ServerPlayer onlinePlayer : serverPlayer.getServer().getPlayerList().getPlayers()) {
+            if (!onlinePlayer.getUUID().equals(ownerUuid)) {
+                onlinePlayers.put(onlinePlayer.getUUID(), onlinePlayer.getName().getString());
+            }
+        }
+
         List<UUID> allowedList = new ArrayList<>(island.getAllowedPlayers());
         NetworkManager.sendToPlayer(serverPlayer,
-                new OpenIslandPayload(island.getX(), island.getZ(), ownerName, allowedList));
+                new OpenIslandPayload(island.getX(), island.getZ(), ownerName, allowedList, onlinePlayers));
 
         // 打开管理面板 GUI（无额外 buffer 数据）
         serverPlayer.openMenu(new MenuProvider() {

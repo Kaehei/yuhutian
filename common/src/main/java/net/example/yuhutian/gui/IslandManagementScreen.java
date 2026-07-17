@@ -4,7 +4,8 @@ import net.example.yuhutian.network.AddFriendPayload;
 import net.example.yuhutian.network.RemoveFriendPayload;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.components.CycleButton;
+import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.common.ServerboundCustomPayloadPacket;
@@ -12,19 +13,29 @@ import net.minecraft.world.entity.player.Inventory;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
  * 空岛管理面板的客户端渲染 Screen。
+ * <p>
+ * 使用 {@link CycleButton} 循环按钮替代旧版 EditBox，
+ * 从服务端同步的在线玩家列表中选择目标玩家，彻底杜绝拼写错误。
+ * </p>
  * <p>
  * 所有 Widget 在 init() 中创建一次，避免 render() 中每帧重建导致内存泄漏。
  * </p>
  */
 public class IslandManagementScreen extends AbstractContainerScreen<IslandManagementMenu> {
 
-    private EditBox nameInput;
+    private CycleButton<UUID> playerDropdown;
     private Button addButton;
     private final List<Button> removeButtons = new ArrayList<>();
+
+    /** 当前可被添加的在线玩家 UUID 列表（排除岛主） */
+    private List<UUID> availablePlayerUuids = new ArrayList<>();
+    /** 玩家 UUID → 名字的映射 */
+    private Map<UUID, String> playerNameMap = Map.of();
 
     public IslandManagementScreen(IslandManagementMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -40,17 +51,37 @@ public class IslandManagementScreen extends AbstractContainerScreen<IslandManage
         int guiLeft = this.leftPos;
         int guiTop = this.topPos;
 
-        // 文本输入框
-        this.nameInput = new EditBox(this.font, guiLeft + 10, guiTop + 120, 120, 20,
-                Component.literal(""));
-        this.nameInput.setMaxLength(16);
-        this.addRenderableWidget(this.nameInput);
+        // 从 Menu 获取服务端同步的在线玩家数据（已排除岛主）
+        this.playerNameMap = this.menu.getOnlinePlayers();
+        this.availablePlayerUuids = new ArrayList<>(playerNameMap.keySet());
 
-        // "添加"按钮
+        // 在线玩家下拉选择按钮
+        if (!availablePlayerUuids.isEmpty()) {
+            this.playerDropdown = CycleButton.<UUID>builder(uuid ->
+                            Component.literal(playerNameMap.getOrDefault(uuid, "???")))
+                    .withValues(availablePlayerUuids)
+                    .withInitialValue(availablePlayerUuids.get(0))
+                    .create(guiLeft + 10, guiTop + 118, 120, 20, Component.empty());
+            this.addRenderableWidget(this.playerDropdown);
+        } else {
+            // 没有其他在线玩家时显示禁用按钮
+            UUID placeholder = UUID.randomUUID();
+            this.playerDropdown = CycleButton.<UUID>builder(uuid -> Component.empty())
+                    .withValues(placeholder)
+                    .withInitialValue(placeholder)
+                    .create(guiLeft + 10, guiTop + 118, 120, 20, Component.empty());
+            this.playerDropdown.active = false;
+            this.playerDropdown.setTooltip(
+                    Tooltip.create(Component.literal("当前无其他在线玩家")));
+            this.addRenderableWidget(this.playerDropdown);
+        }
+
+        // "添加权限"按钮
         this.addButton = Button.builder(Component.literal("添加"), button -> onAddClicked())
-                .pos(guiLeft + 135, guiTop + 119)
+                .pos(guiLeft + 135, guiTop + 117)
                 .size(70, 22)
                 .build();
+        this.addButton.active = !availablePlayerUuids.isEmpty();
         this.addRenderableWidget(this.addButton);
 
         // 为每个信任玩家创建"删除"按钮（仅在 init 时创建一次）
@@ -69,11 +100,12 @@ public class IslandManagementScreen extends AbstractContainerScreen<IslandManage
     }
 
     private void onAddClicked() {
-        String name = this.nameInput.getValue().trim();
-        if (!name.isEmpty() && this.minecraft != null && this.minecraft.getConnection() != null) {
+        if (availablePlayerUuids.isEmpty()) return;
+        if (playerDropdown == null) return;
+        if (this.minecraft != null && this.minecraft.getConnection() != null) {
+            UUID selectedUuid = playerDropdown.getValue();
             this.minecraft.getConnection().send(
-                    new ServerboundCustomPayloadPacket(new AddFriendPayload(name)));
-            this.nameInput.setValue("");
+                    new ServerboundCustomPayloadPacket(new AddFriendPayload(selectedUuid)));
         }
     }
 
@@ -135,11 +167,9 @@ public class IslandManagementScreen extends AbstractContainerScreen<IslandManage
             }
         }
 
-        // 输入框提示
-        if (this.nameInput.getValue().isEmpty()) {
-            graphics.drawString(this.font, "输入玩家名...",
-                    guiLeft + 14, guiTop + 126, 0x606060, false);
-        }
+        // 下拉按钮上方标签
+        graphics.drawString(this.font, "添加在线玩家:",
+                guiLeft + 10, guiTop + 106, 0xAAAAAA, false);
 
         this.renderTooltip(graphics, mouseX, mouseY);
     }

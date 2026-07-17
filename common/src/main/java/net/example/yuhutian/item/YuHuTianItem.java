@@ -34,7 +34,7 @@ import net.minecraft.world.level.Level;
  */
 public class YuHuTianItem extends Item {
 
-    private static final double TELEPORT_Y = 105.0;
+    private static final double TELEPORT_Y = 106.0;
 
     public YuHuTianItem(Properties properties) {
         super(properties);

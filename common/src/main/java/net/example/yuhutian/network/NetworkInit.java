@@ -38,7 +38,7 @@ public final class NetworkInit {
                     if (!(context.getPlayer() instanceof ServerPlayer player)) return;
                     // 确保在主线程执行，避免并发修改世界数据
                     player.getServer().execute(() -> {
-                        handleAddFriend(player, payload.playerName());
+                        handleAddFriend(player, payload.playerUuid());
                     });
                 });
 
@@ -65,15 +65,17 @@ public final class NetworkInit {
                             payload.islandX(),
                             payload.islandZ(),
                             payload.ownerName(),
-                            payload.allowedPlayers()
+                            payload.allowedPlayers(),
+                            payload.onlinePlayers()
                     };
                 });
     }
 
     /**
      * 处理添加好友请求。
+     * 客户端直接发送 UUID，无需通过名字查找。
      */
-    private static void handleAddFriend(ServerPlayer requester, String friendName) {
+    private static void handleAddFriend(ServerPlayer requester, UUID friendUuid) {
         ServerLevel yuhutianLevel = requester.getServer().getLevel(YuhutianDimension.YUHUTIAN_LEVEL);
         if (yuhutianLevel == null) return;
 
@@ -86,16 +88,8 @@ public final class NetworkInit {
             return;
         }
 
-        // 通过名称查找目标玩家
-        ServerPlayer friendPlayer = requester.getServer().getPlayerList().getPlayerByName(friendName);
-        if (friendPlayer == null) {
-            requester.displayClientMessage(
-                    net.minecraft.network.chat.Component.literal("§c找不到玩家: " + friendName), false);
-            return;
-        }
-
         // 不能添加自己
-        if (friendPlayer.getUUID().equals(requester.getUUID())) {
+        if (friendUuid.equals(requester.getUUID())) {
             requester.displayClientMessage(
                     net.minecraft.network.chat.Component.literal("§c不能添加自己为好友！"), false);
             return;
@@ -104,8 +98,15 @@ public final class NetworkInit {
         // 添加到信任列表
         IslandInfo island = data.getIsland(requester.getUUID());
         if (island != null) {
-            island.addAllowedPlayer(friendPlayer.getUUID());
+            island.addAllowedPlayer(friendUuid);
             data.setDirty();
+
+            // 尝试获取玩家名字用于提示
+            String friendName = friendUuid.toString().substring(0, 8) + "...";
+            ServerPlayer friendPlayer = requester.getServer().getPlayerList().getPlayer(friendUuid);
+            if (friendPlayer != null) {
+                friendName = friendPlayer.getName().getString();
+            }
             requester.displayClientMessage(
                     net.minecraft.network.chat.Component.literal("§a已添加 " + friendName + " 到信任列表。"), false);
         }

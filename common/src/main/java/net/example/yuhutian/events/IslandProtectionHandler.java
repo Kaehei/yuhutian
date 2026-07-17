@@ -1,8 +1,10 @@
 package net.example.yuhutian.events;
 
 import dev.architectury.event.EventResult;
+import dev.architectury.event.events.common.AttackEntityEvent;
 import dev.architectury.event.events.common.InteractionEvent;
 import net.example.yuhutian.YuhutianDimension;
+import net.example.yuhutian.entity.IslandNPCEntity;
 import net.example.yuhutian.world.IslandInfo;
 import net.example.yuhutian.world.IslandSavedData;
 import net.minecraft.core.BlockPos;
@@ -52,6 +54,35 @@ public final class IslandProtectionHandler {
             if (!isYuhutianDimension(level)) return EventResult.pass();
             if (level.isClientSide()) return EventResult.pass();
             return checkPermission(player, level, pos) ? EventResult.pass() : EventResult.interruptFalse();
+        });
+
+        // 拦截实体攻击（禁止非主人攻击空岛 NPC）
+        AttackEntityEvent.EVENT.register((player, target, hand) -> {
+            Level level = player.level();
+            if (!isYuhutianDimension(level)) return EventResult.pass();
+            if (level.isClientSide()) return EventResult.pass();
+            if (!(target instanceof IslandNPCEntity)) return EventResult.pass();
+
+            if (!(player instanceof ServerPlayer serverPlayer)) return EventResult.pass();
+            if (!(level instanceof ServerLevel serverLevel)) return EventResult.pass();
+
+            int npcX = (int) target.getX();
+            IslandSavedData data = IslandSavedData.getOrCreate(serverLevel);
+            UUID islandOwner = findIslandOwner(data, npcX);
+
+            // NPC 不属于任何岛屿时允许攻击（异常情况）
+            if (islandOwner == null) return EventResult.pass();
+
+            // 空岛主人可以攻击自己的 NPC
+            if (player.getUUID().equals(islandOwner)) return EventResult.pass();
+
+            // 信任列表玩家也可以
+            IslandInfo island = data.getIsland(islandOwner);
+            if (island != null && island.isAllowed(player.getUUID())) return EventResult.pass();
+
+            // 非主人/非信任玩家，禁止攻击
+            sendDenyMessage(serverPlayer);
+            return EventResult.interruptFalse();
         });
     }
 

@@ -10,6 +10,7 @@ import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.item.ItemStack;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -18,7 +19,7 @@ import java.util.UUID;
  * 空岛管理面板的容器菜单。
  * <p>
  * 不包含物品栏格子，是一个纯功能性面板。
- * 持有当前空岛的基本信息和信任玩家列表，供客户端 Screen 渲染使用。
+ * 持有当前空岛的基本信息、信任玩家列表和在线玩家列表，供客户端 Screen 渲染使用。
  * </p>
  * <p>
  * MC 1.21.1 的 ServerPlayer.openMenu 不再支持 Consumer&lt;FriendlyByteBuf&gt; 参数，
@@ -37,6 +38,7 @@ public class IslandManagementMenu extends AbstractContainerMenu {
     private final int islandZ;
     private final String ownerName;
     private final List<UUID> allowedPlayers;
+    private final Map<UUID, String> onlinePlayers;
 
     /**
      * 服务端构造：由 NPC 交互触发。
@@ -64,6 +66,7 @@ public class IslandManagementMenu extends AbstractContainerMenu {
         }
         this.ownerName = name;
         this.allowedPlayers = getAllowedPlayersForIsland(player, islandX);
+        this.onlinePlayers = new LinkedHashMap<>();
     }
 
     /**
@@ -74,6 +77,7 @@ public class IslandManagementMenu extends AbstractContainerMenu {
      * 我们忽略它，改为从 pendingData 读取。
      * </p>
      */
+    @SuppressWarnings("unchecked")
     public IslandManagementMenu(int containerId, Player player, net.minecraft.network.FriendlyByteBuf buf) {
         super(ModMenuTypes.ISLAND_MANAGEMENT.get(), containerId);
         if (pendingData != null) {
@@ -81,12 +85,14 @@ public class IslandManagementMenu extends AbstractContainerMenu {
             this.islandZ = (int) pendingData[1];
             this.ownerName = (String) pendingData[2];
             this.allowedPlayers = new ArrayList<>((List<UUID>) pendingData[3]);
+            this.onlinePlayers = new LinkedHashMap<>((Map<UUID, String>) pendingData[4]);
             pendingData = null;
         } else {
             this.islandX = 0;
             this.islandZ = 0;
             this.ownerName = "Unknown";
             this.allowedPlayers = new ArrayList<>();
+            this.onlinePlayers = new LinkedHashMap<>();
         }
     }
 
@@ -111,6 +117,7 @@ public class IslandManagementMenu extends AbstractContainerMenu {
     public int getIslandZ() { return islandZ; }
     public String getOwnerName() { return ownerName; }
     public List<UUID> getMenuAllowedPlayers() { return allowedPlayers; }
+    public Map<UUID, String> getOnlinePlayers() { return onlinePlayers; }
 
     // ==================== AbstractContainerMenu 必须实现 ====================
 
@@ -121,7 +128,6 @@ public class IslandManagementMenu extends AbstractContainerMenu {
 
     @Override
     public boolean stillValid(Player player) {
-        // 限制在 NPC 附近 8 格内才能保持打开
-        return player.distanceToSqr(player.getX(), player.getY(), player.getZ()) < 64.0;
+        return true;
     }
 }

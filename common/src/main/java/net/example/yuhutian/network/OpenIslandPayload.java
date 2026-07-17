@@ -7,7 +7,9 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -23,7 +25,8 @@ public record OpenIslandPayload(
         int islandX,
         int islandZ,
         String ownerName,
-        List<UUID> allowedPlayers
+        List<UUID> allowedPlayers,
+        Map<UUID, String> onlinePlayers
 ) implements CustomPacketPayload {
 
     public static final Type<OpenIslandPayload> TYPE = new Type<>(
@@ -40,6 +43,11 @@ public record OpenIslandPayload(
         for (UUID uuid : payload.allowedPlayers) {
             buf.writeUUID(uuid);
         }
+        buf.writeInt(payload.onlinePlayers.size());
+        for (Map.Entry<UUID, String> entry : payload.onlinePlayers.entrySet()) {
+            buf.writeUUID(entry.getKey());
+            buf.writeUtf(entry.getValue(), 64);
+        }
     }
 
     private static OpenIslandPayload read(RegistryFriendlyByteBuf buf) {
@@ -51,7 +59,14 @@ public record OpenIslandPayload(
         for (int i = 0; i < count; i++) {
             players.add(buf.readUUID());
         }
-        return new OpenIslandPayload(islandX, islandZ, ownerName, players);
+        int onlineCount = buf.readInt();
+        Map<UUID, String> onlinePlayers = new LinkedHashMap<>(onlineCount);
+        for (int i = 0; i < onlineCount; i++) {
+            UUID uuid = buf.readUUID();
+            String name = buf.readUtf(64);
+            onlinePlayers.put(uuid, name);
+        }
+        return new OpenIslandPayload(islandX, islandZ, ownerName, players, onlinePlayers);
     }
 
     @Override
