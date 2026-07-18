@@ -21,7 +21,6 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Optional;
-import java.util.UUID;
 
 /**
  * 空岛生成器。
@@ -51,12 +50,10 @@ public final class IslandGenerator {
      * 在指定空岛中心坐标生成岛屿结构与 NPC。
      *
      * @param level   目标 ServerLevel（玉壶天维度）
-     * @param island  空岛信息（用于保存 NPC UUID）
+     * @param islandX 空岛中心 X 坐标（= index * 1000）
+     * @param islandZ 空岛中心 Z 坐标（= 0）
      */
-    public static void generate(ServerLevel level, IslandInfo island) {
-        int islandX = island.getX();
-        int islandZ = island.getZ();
-
+    public static void generate(ServerLevel level, int islandX, int islandZ) {
         // 1. 强制加载目标区域区块，防止虚空区块未加载导致失败
         int chunkX = islandX >> 4;
         int chunkZ = islandZ >> 4;
@@ -115,63 +112,11 @@ public final class IslandGenerator {
             npc.setPersistenceRequired();
             npc.setInvulnerable(true);
             level.addFreshEntity(npc);
-            // 保存 NPC UUID 到空岛信息，用于后续检测和重生
-            island.setNpcUuid(npc.getUUID());
-            LOGGER.info("[yuhutian] Spawned Island NPC at ({}, {}, {}), UUID: {}",
-                    islandX + 0.5, NPC_SPAWN_Y, islandZ + 0.5, npc.getUUID());
+            LOGGER.info("[yuhutian] Spawned Island NPC at ({}, {}, {})",
+                    islandX + 0.5, NPC_SPAWN_Y, islandZ + 0.5);
         } else {
             LOGGER.warn("[yuhutian] Failed to spawn Island NPC at ({}, {}, {})",
                     islandX, NPC_SPAWN_Y, islandZ);
-        }
-    }
-
-    /**
-     * 检查空岛的 NPC 是否存在，如果不存在则重新生成。
-     * <p>
-     * 通过 IslandInfo 中保存的 NPC UUID 进行精确检测，避免重复生成。
-     * 仅当 NPC 确实不存在时才生成新的，并更新 IslandInfo 中的 UUID。
-     * </p>
-     *
-     * @param level   玉壶天维度 ServerLevel
-     * @param island  空岛信息
-     * @param data    空岛数据（用于标记脏数据触发保存）
-     */
-    public static void ensureNpcExists(ServerLevel level, IslandInfo island, IslandSavedData data) {
-        if (!ModEntities.ISLAND_NPC.isPresent()) {
-            LOGGER.warn("[yuhutian] ISLAND_NPC entity type not yet registered, cannot ensure NPC");
-            return;
-        }
-
-        UUID savedUuid = island.getNpcUuid();
-        boolean npcAlive = false;
-
-        // 如果有保存的 UUID，检查实体是否还存在
-        if (savedUuid != null) {
-            net.minecraft.world.entity.Entity entity = level.getEntity(savedUuid);
-            if (entity != null && entity.isAlive()) {
-                npcAlive = true;
-            }
-        }
-
-        // NPC 不存在或已死亡，需要重新生成
-        if (!npcAlive) {
-            IslandNPCEntity npc = ModEntities.ISLAND_NPC.get().create(level);
-            if (npc != null) {
-                int islandX = island.getX();
-                int islandZ = island.getZ();
-                npc.moveTo(islandX + 0.5, NPC_SPAWN_Y, islandZ + 0.5, 0.0F, 0.0F);
-                npc.setPersistenceRequired();
-                npc.setInvulnerable(true);
-                level.addFreshEntity(npc);
-                // 更新 IslandInfo 中的 NPC UUID
-                island.setNpcUuid(npc.getUUID());
-                data.setDirty();
-                LOGGER.info("[yuhutian] Respawned Island NPC at ({}, {}, {}), UUID: {}",
-                        islandX + 0.5, NPC_SPAWN_Y, islandZ + 0.5, npc.getUUID());
-            } else {
-                LOGGER.warn("[yuhutian] Failed to respawn Island NPC at ({}, {}, {})",
-                        island.getX(), NPC_SPAWN_Y, island.getZ());
-            }
         }
     }
 

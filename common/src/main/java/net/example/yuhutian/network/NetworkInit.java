@@ -357,12 +357,9 @@ public final class NetworkInit {
 
         // 确保目标空岛已生成结构
         if (targetIsland.isNew()) {
-            IslandGenerator.generate(yuhutianLevel, targetIsland);
+            IslandGenerator.generate(yuhutianLevel, targetIsland.getX(), targetIsland.getZ());
             targetIsland.setNew(false);
             data.setDirty();
-        } else if (targetOwnerUuid.equals(requester.getUUID())) {
-            // 岛主返回自己的岛屿时，确保 NPC 存在（如果被打死则自动重生）
-            IslandGenerator.ensureNpcExists(yuhutianLevel, targetIsland, data);
         }
 
         // 如果玩家不在玉壶天维度，保存当前位置作为返回点
