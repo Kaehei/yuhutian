@@ -389,6 +389,9 @@ public final class NetworkInit {
         yuhutianLevel.playSound(null, targetX, targetY, targetZ,
                 SoundEvents.ENDERMAN_TELEPORT, SoundSource.PLAYERS, 1.0F, 1.0F);
 
+        // 确保 NPC 存在（如果被打死则自动重生）
+        IslandGenerator.ensureNpcExists(yuhutianLevel, targetIsland.getX(), targetIsland.getZ());
+
         // 入场欢迎仪式：注册延迟触发（等待客户端加载完毕后再发送 Title + 音效）
         WelcomeTriggerManager.registerDelayedWelcome(requester,
                 targetIsland.getGreetingText(), targetIsland.getGreetingSound(), targetIsland.isEnableGreeting());

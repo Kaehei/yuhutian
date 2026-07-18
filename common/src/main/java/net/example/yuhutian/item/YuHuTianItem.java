@@ -140,6 +140,9 @@ public class YuHuTianItem extends Item {
             yuhutianLevel.playSound(null, targetX, TELEPORT_Y, targetZ,
                     SoundEvents.ENDERMAN_TELEPORT, SoundSource.PLAYERS, 1.0F, 1.0F);
 
+            // 确保 NPC 存在（如果被打死则自动重生）
+            IslandGenerator.ensureNpcExists(yuhutianLevel, island.getX(), island.getZ());
+
             // 提示玩家如何返回
             serverPlayer.displayClientMessage(
                     Component.literal("§a已到达空岛！再次右键玉壶天可返回原处。"), false);

@@ -15,6 +15,7 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructurePlaceSettings;
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate;
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplateManager;
+import net.minecraft.world.phys.AABB;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -41,7 +42,7 @@ public final class IslandGenerator {
     private static final int STRUCTURE_Y = 100;
 
     /** NPC 生成位置相对于岛屿中心的 Y 偏移（岛屿表面） */
-    private static final double NPC_SPAWN_Y = 106.0;
+    public static final double NPC_SPAWN_Y = 106.0;
 
     private IslandGenerator() {
     }
@@ -184,6 +185,53 @@ public final class IslandGenerator {
             for (int dz = -3; dz <= 3; dz++) {
                 level.setBlock(new BlockPos(centerX + dx, y, centerZ + dz),
                         Blocks.STONE_BRICKS.defaultBlockState(), 2);
+            }
+        }
+    }
+
+    /**
+     * 检查指定空岛的 NPC 是否存在，如果不存在则重新生成。
+     * <p>
+     * 在玩家进入空岛时调用，确保 NPC 始终可用。
+     * </p>
+     *
+     * @param level   玉壶天维度 ServerLevel
+     * @param islandX 空岛中心 X 坐标
+     * @param islandZ 空岛中心 Z 坐标
+     */
+    public static void ensureNpcExists(ServerLevel level, int islandX, int islandZ) {
+        if (!ModEntities.ISLAND_NPC.isPresent()) {
+            LOGGER.warn("[yuhutian] ISLAND_NPC entity type not yet registered, cannot respawn NPC");
+            return;
+        }
+
+        // 在 NPC 生成位置附近搜索现有 NPC
+        double searchRadius = 10.0;
+        AABB searchArea = new AABB(
+                islandX + 0.5 - searchRadius, NPC_SPAWN_Y - searchRadius, islandZ + 0.5 - searchRadius,
+                islandX + 0.5 + searchRadius, NPC_SPAWN_Y + searchRadius, islandZ + 0.5 + searchRadius
+        );
+
+        boolean npcExists = level.getEntitiesOfClass(IslandNPCEntity.class, searchArea, npc -> {
+            // 检查 NPC 是否属于这个空岛（距离中心不超过搜索半径）
+            double dx = npc.getX() - (islandX + 0.5);
+            double dz = npc.getZ() - (islandZ + 0.5);
+            return Math.sqrt(dx * dx + dz * dz) <= searchRadius;
+        }).stream().findAny().isPresent();
+
+        if (!npcExists) {
+            // NPC 不存在，重新生成
+            IslandNPCEntity npc = ModEntities.ISLAND_NPC.get().create(level);
+            if (npc != null) {
+                npc.moveTo(islandX + 0.5, NPC_SPAWN_Y, islandZ + 0.5, 0.0F, 0.0F);
+                npc.setPersistenceRequired();
+                npc.setInvulnerable(true);
+                level.addFreshEntity(npc);
+                LOGGER.info("[yuhutian] Respawned Island NPC at ({}, {}, {})",
+                        islandX + 0.5, NPC_SPAWN_Y, islandZ + 0.5);
+            } else {
+                LOGGER.warn("[yuhutian] Failed to respawn Island NPC at ({}, {}, {})",
+                        islandX, NPC_SPAWN_Y, islandZ);
             }
         }
     }
