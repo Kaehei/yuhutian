@@ -22,5 +22,11 @@
   "gui.yuhutian.greeting_sound_label": "Sound:",
   "gui.yuhutian.greeting_save": "Save Greeting",
   "gui.yuhutian.greeting_saved": "Welcome greeting saved.",
-  "gui.yuhutian.greeting_default_text": "Welcome to my island!"
+  "gui.yuhutian.greeting_default_text": "Welcome to my island!",
+  "gui.yuhutian.visit_section": "Visit Other Islands:",
+  "gui.yuhutian.visit_teleport": "Teleport",
+  "gui.yuhutian.visit_loading": "Loading...",
+  "gui.yuhutian.visit_no_island": "This island does not exist.",
+  "gui.yuhutian.visit_no_permission": "You do not have permission to visit this island!",
+  "gui.yuhutian.visit_success": "Teleported to island! Use Yu Hu Tian again to return."
 }

@@ -3,6 +3,9 @@ package net.example.yuhutian.gui;
 import dev.architectury.networking.NetworkManager;
 import net.example.yuhutian.network.AddFriendPayload;
 import net.example.yuhutian.network.RemoveFriendPayload;
+import net.example.yuhutian.network.RequestVisitableIslandsPayload;
+import net.example.yuhutian.network.SyncVisitableIslandsPayload;
+import net.example.yuhutian.network.TeleportToIslandPayload;
 import net.example.yuhutian.network.ToggleBorderPayload;
 import net.example.yuhutian.network.UpdateGreetingPayload;
 import net.example.yuhutian.world.IslandInfo;
@@ -18,6 +21,7 @@ import net.minecraft.world.entity.player.Inventory;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 
 /**
@@ -56,10 +60,22 @@ public class IslandManagementScreen extends AbstractContainerScreen<IslandManage
             {"猫叫", "minecraft:entity.cat.purr"},
     };
 
+    /** S2C 拜访列表缓冲区：SyncVisitableIslandsPayload 写入，init() 读取 */
+    public static List<SyncVisitableIslandsPayload.IslandEntry> visitPendingData = null;
+
+    /** 可拜访的空岛条目列表 */
+    private List<SyncVisitableIslandsPayload.IslandEntry> visitableEntries = new ArrayList<>();
+    /** 当前选中的拜访目标岛主 UUID */
+    private UUID selectedVisitUuid = null;
+    /** 拜访列表滚动偏移量（条目数） */
+    private int visitScrollOffset = 0;
+    /** 传送按钮引用（用于启用/禁用） */
+    private Button teleportButton;
+
     public IslandManagementScreen(IslandManagementMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
         this.imageWidth = 220;
-        this.imageHeight = 340;
+        this.imageHeight = 470;
     }
 
     @Override
@@ -167,6 +183,25 @@ public class IslandManagementScreen extends AbstractContainerScreen<IslandManage
             NetworkManager.sendToServer(new UpdateGreetingPayload(text, selectedSound));
         }).pos(guiLeft + 135, guiTop + 273).size(75, 22).build();
         this.addRenderableWidget(saveGreetingBtn);
+
+        // ===== 拜访他人空岛区域 =====
+        // 从 S2C 缓冲区加载可拜访列表（如果有待读取数据）
+        if (visitPendingData != null) {
+            this.visitableEntries = new ArrayList<>(visitPendingData);
+            visitPendingData = null;
+        }
+
+        // 传送按钮
+        this.teleportButton = Button.builder(Component.literal("传送"), button -> {
+            if (selectedVisitUuid != null) {
+                NetworkManager.sendToServer(new TeleportToIslandPayload(selectedVisitUuid));
+            }
+        }).pos(guiLeft + 60, guiTop + 426).size(100, 20).build();
+        this.teleportButton.active = selectedVisitUuid != null;
+        this.addRenderableWidget(this.teleportButton);
+
+        // 向服务端请求最新的可拜访空岛列表
+        NetworkManager.sendToServer(new RequestVisitableIslandsPayload());
     }
 
     private void onAddClicked() {
@@ -242,6 +277,106 @@ public class IslandManagementScreen extends AbstractContainerScreen<IslandManage
         graphics.drawString(this.font, "§n欢迎寄语:",
                 guiLeft + 10, guiTop + 228, 0xAAAAAA, false);
 
+        // ===== 拜访他人空岛区域渲染 =====
+        // 分隔线
+        graphics.fill(guiLeft + 10, guiTop + 302, guiLeft + 210, guiTop + 303, 0x80FFFFFF);
+
+        // 区域标题
+        graphics.drawString(this.font, "§n拜访他人空岛:",
+                guiLeft + 10, guiTop + 308, 0xAAAAAA, false);
+
+        // 列表背景
+        graphics.fill(guiLeft + 10, guiTop + 322, guiLeft + 210, guiTop + 422, 0x30FFFFFF);
+
+        // 检查 S2C 异步返回的数据
+        if (visitPendingData != null) {
+            this.visitableEntries = new ArrayList<>(visitPendingData);
+            visitPendingData = null;
+            // 重新启用传送按钮
+            if (teleportButton != null) {
+                teleportButton.active = selectedVisitUuid != null;
+            }
+        }
+
+        // 渲染可见条目（使用裁剪防止溢出列表区域）
+        int listTop = guiTop + 322;
+        int listBottom = guiTop + 422;
+        int entryHeight = 14;
+        graphics.enableScissor(guiLeft + 10, listTop, guiLeft + 210, listBottom);
+        for (int i = visitScrollOffset; i < visitableEntries.size(); i++) {
+            int entryY = listTop + (i - visitScrollOffset) * entryHeight;
+            if (entryY + entryHeight > listBottom) break;
+
+            SyncVisitableIslandsPayload.IslandEntry entry = visitableEntries.get(i);
+            boolean isSelected = Objects.equals(entry.ownerUuid(), selectedVisitUuid);
+
+            // 选中高亮
+            if (isSelected) {
+                graphics.fill(guiLeft + 10, entryY, guiLeft + 210, entryY + entryHeight, 0x60FFD700);
+            }
+
+            // 条目文本：岛主名 + 空岛编号
+            graphics.drawString(this.font,
+                    entry.ownerName() + " #" + entry.index(),
+                    guiLeft + 14, entryY + 3,
+                    isSelected ? 0xFFFF00 : 0xFFFFFF, false);
+        }
+        graphics.disableScissor();
+
+        // 空列表提示
+        if (visitableEntries.isEmpty()) {
+            graphics.drawString(this.font, "加载中...",
+                    guiLeft + 80, guiTop + 368, 0x808080, false);
+        }
+
         this.renderTooltip(graphics, mouseX, mouseY);
+    }
+
+    @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (super.mouseClicked(mouseX, mouseY, button)) return true;
+
+        // 拜访列表点击检测
+        int listLeft = this.leftPos + 10;
+        int listRight = this.leftPos + 210;
+        int listTop = this.topPos + 322;
+        int listBottom = this.topPos + 422;
+
+        if (mouseX >= listLeft && mouseX <= listRight
+                && mouseY >= listTop && mouseY <= listBottom) {
+            int entryHeight = 14;
+            int idx = visitScrollOffset + (int) ((mouseY - listTop) / entryHeight);
+            if (idx >= 0 && idx < visitableEntries.size()) {
+                selectedVisitUuid = visitableEntries.get(idx).ownerUuid();
+                if (teleportButton != null) {
+                    teleportButton.active = true;
+                }
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+        if (super.mouseScrolled(mouseX, mouseY, scrollX, scrollY)) return true;
+
+        // 拜访列表滚动处理
+        int listLeft = this.leftPos + 10;
+        int listRight = this.leftPos + 210;
+        int listTop = this.topPos + 322;
+        int listBottom = this.topPos + 422;
+
+        if (mouseX >= listLeft && mouseX <= listRight
+                && mouseY >= listTop && mouseY <= listBottom) {
+            int entryHeight = 14;
+            int maxVisible = (listBottom - listTop) / entryHeight;
+            int maxOffset = Math.max(0, visitableEntries.size() - maxVisible);
+            visitScrollOffset = (int) Math.max(0, Math.min(maxOffset, visitScrollOffset - scrollY));
+            return true;
+        }
+
+        return false;
     }
 }

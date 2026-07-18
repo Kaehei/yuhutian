@@ -3,13 +3,22 @@ package net.example.yuhutian.network;
 import dev.architectury.networking.NetworkManager;
 import net.example.yuhutian.YuhutianDimension;
 import net.example.yuhutian.gui.IslandManagementMenu;
+import net.example.yuhutian.item.YuHuTianItem;
+import net.example.yuhutian.world.IslandGenerator;
 import net.example.yuhutian.world.IslandInfo;
 import net.example.yuhutian.world.IslandSavedData;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.level.Level;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -71,6 +80,26 @@ public final class NetworkInit {
                         handleUpdateGreeting(player, payload.greetingText(), payload.greetingSound());
                     });
                 });
+
+        // 注册 RequestVisitableIslandsPayload 接收器（请求可拜访的空岛列表）
+        NetworkManager.registerReceiver(NetworkManager.c2s(),
+                RequestVisitableIslandsPayload.TYPE, RequestVisitableIslandsPayload.STREAM_CODEC,
+                (payload, context) -> {
+                    if (!(context.getPlayer() instanceof ServerPlayer player)) return;
+                    player.getServer().execute(() -> {
+                        handleRequestVisitableIslands(player);
+                    });
+                });
+
+        // 注册 TeleportToIslandPayload 接收器（传送到指定空岛）
+        NetworkManager.registerReceiver(NetworkManager.c2s(),
+                TeleportToIslandPayload.TYPE, TeleportToIslandPayload.STREAM_CODEC,
+                (payload, context) -> {
+                    if (!(context.getPlayer() instanceof ServerPlayer player)) return;
+                    player.getServer().execute(() -> {
+                        handleTeleportToIsland(player, payload.targetOwnerUuid());
+                    });
+                });
     }
 
     /**
@@ -91,6 +120,13 @@ public final class NetworkInit {
                             payload.greetingText(),
                             payload.greetingSound()
                     };
+                });
+
+        // 注册可拜访空岛列表 S2C 包接收器
+        NetworkManager.registerReceiver(NetworkManager.s2c(),
+                SyncVisitableIslandsPayload.TYPE, SyncVisitableIslandsPayload.STREAM_CODEC,
+                (payload, context) -> {
+                    net.example.yuhutian.gui.IslandManagementScreen.visitPendingData = payload.entries();
                 });
     }
 
@@ -201,5 +237,103 @@ public final class NetworkInit {
             requester.displayClientMessage(
                     net.minecraft.network.chat.Component.literal("§a欢迎寄语已保存。"), false);
         }
+    }
+
+    /**
+     * 处理可拜访空岛列表请求。
+     * 筛选出请求者拥有或被信任的所有空岛，将列表通过 S2C 包发回客户端。
+     */
+    private static void handleRequestVisitableIslands(ServerPlayer requester) {
+        ServerLevel yuhutianLevel = requester.getServer().getLevel(YuhutianDimension.YUHUTIAN_LEVEL);
+        if (yuhutianLevel == null) return;
+
+        IslandSavedData data = IslandSavedData.getOrCreate(yuhutianLevel);
+        List<SyncVisitableIslandsPayload.IslandEntry> entries = new ArrayList<>();
+
+        for (Map.Entry<UUID, IslandInfo> entry : data.getAllIslands().entrySet()) {
+            UUID ownerUuid = entry.getKey();
+            IslandInfo info = entry.getValue();
+
+            // 筛选：请求者是岛主或在信任列表中
+            if (ownerUuid.equals(requester.getUUID()) || info.isAllowed(requester.getUUID())) {
+                // 解析岛主名称
+                String ownerName;
+                ServerPlayer ownerPlayer = requester.getServer().getPlayerList().getPlayer(ownerUuid);
+                if (ownerPlayer != null) {
+                    ownerName = ownerPlayer.getName().getString();
+                } else {
+                    ownerName = ownerUuid.toString().substring(0, 8) + "...";
+                }
+                entries.add(new SyncVisitableIslandsPayload.IslandEntry(
+                        ownerName, info.getIndex(), ownerUuid));
+            }
+        }
+
+        NetworkManager.sendToPlayer(requester, new SyncVisitableIslandsPayload(entries));
+    }
+
+    /**
+     * 处理跨空岛传送请求。
+     * 服务端重新验证权限后执行传送，并触发入场欢迎仪式。
+     */
+    private static void handleTeleportToIsland(ServerPlayer requester, UUID targetOwnerUuid) {
+        ServerLevel yuhutianLevel = requester.getServer().getLevel(YuhutianDimension.YUHUTIAN_LEVEL);
+        if (yuhutianLevel == null) return;
+
+        IslandSavedData data = IslandSavedData.getOrCreate(yuhutianLevel);
+        IslandInfo targetIsland = data.getIsland(targetOwnerUuid);
+
+        if (targetIsland == null) {
+            requester.displayClientMessage(
+                    Component.literal("§c该空岛不存在。"), false);
+            return;
+        }
+
+        // 权限二次验证：必须是岛主或在信任列表中
+        if (!targetOwnerUuid.equals(requester.getUUID()) && !targetIsland.isAllowed(requester.getUUID())) {
+            requester.displayClientMessage(
+                    Component.literal("§c你没有拜访该空岛的权限！"), false);
+            return;
+        }
+
+        // 确保目标空岛已生成结构
+        if (targetIsland.isNew()) {
+            IslandGenerator.generate(yuhutianLevel, targetIsland.getX(), targetIsland.getZ());
+            targetIsland.setNew(false);
+            data.setDirty();
+        }
+
+        // 如果玩家不在玉壶天维度，保存当前位置作为返回点
+        if (!requester.level().dimension().equals(YuhutianDimension.YUHUTIAN_LEVEL)) {
+            Level currentLevel = requester.level();
+            IslandSavedData.ReturnPosition returnPos = new IslandSavedData.ReturnPosition(
+                    currentLevel.dimension().location(),
+                    requester.getX(), requester.getY(), requester.getZ(),
+                    requester.getYRot(), requester.getXRot()
+            );
+            data.setReturnPosition(requester.getUUID(), returnPos);
+        }
+
+        double targetX = targetIsland.getX() + 0.5;
+        double targetZ = targetIsland.getZ() + 0.5;
+        double targetY = 65.0;
+
+        // 播放离开音效
+        requester.level().playSound(null, requester.getX(), requester.getY(), requester.getZ(),
+                SoundEvents.ENDERMAN_TELEPORT, SoundSource.PLAYERS, 1.0F, 1.0F);
+
+        // 跨维度传送
+        requester.teleportTo(yuhutianLevel, targetX, targetY, targetZ,
+                requester.getYRot(), requester.getXRot());
+
+        // 播放到达音效
+        yuhutianLevel.playSound(null, targetX, targetY, targetZ,
+                SoundEvents.ENDERMAN_TELEPORT, SoundSource.PLAYERS, 1.0F, 1.0F);
+
+        // 触发入场欢迎仪式（Phase 6 的 Title + 自定义音效）
+        YuHuTianItem.playGreetingCeremony(requester, targetIsland);
+
+        requester.displayClientMessage(
+                Component.literal("§a已传送到空岛！再次右键玉壶天可返回原处。"), false);
     }
 }

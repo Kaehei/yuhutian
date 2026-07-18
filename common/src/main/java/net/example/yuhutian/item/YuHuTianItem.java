@@ -158,7 +158,7 @@ public class YuHuTianItem extends Item {
      * @param player 被传送的玩家
      * @param island 目标空岛信息
      */
-    private static void playGreetingCeremony(ServerPlayer player, IslandInfo island) {
+    public static void playGreetingCeremony(ServerPlayer player, IslandInfo island) {
         // 1. 发送 Title 动画时序：淡入 10 tick，停留 40 tick，淡出 20 tick
         player.connection.send(new ClientboundSetTitlesAnimationPacket(10, 40, 20));
 
