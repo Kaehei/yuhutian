@@ -104,7 +104,7 @@ public class IslandManagementScreen extends AbstractContainerScreen<IslandManage
                         Component.literal(state ? "§a显示边界: ON" : "§c显示边界: OFF"))
                 .withValues(true, false)
                 .withInitialValue(this.menu.isShowBorder())
-                .withTooltip(Tooltip.create(Component.literal("开启后靠近领地边界时显示粒子墙")))
+                .withTooltip(state -> Tooltip.create(Component.literal("开启后靠近领地边界时显示粒子墙")))
                 .create(guiLeft + 10, guiTop + 198, 200, 20, Component.empty(),
                         (button, newState) -> {
                             NetworkManager.sendToServer(new ToggleBorderPayload(newState));
