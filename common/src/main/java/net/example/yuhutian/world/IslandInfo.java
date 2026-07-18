@@ -22,6 +22,7 @@ public class IslandInfo {
     private final int x;
     private final int z;
     private boolean isNew;
+    private boolean showBorder;
     private final List<UUID> allowedPlayers;
 
     /**
@@ -36,14 +37,16 @@ public class IslandInfo {
         this.x = Math.multiplyExact(index, 1000); // 溢出保护
         this.z = 0;
         this.isNew = true;
+        this.showBorder = false;
         this.allowedPlayers = new ArrayList<>();
     }
 
-    private IslandInfo(int index, int x, int z, boolean isNew, List<UUID> allowedPlayers) {
+    private IslandInfo(int index, int x, int z, boolean isNew, boolean showBorder, List<UUID> allowedPlayers) {
         this.index = index;
         this.x = x;
         this.z = z;
         this.isNew = isNew;
+        this.showBorder = showBorder;
         this.allowedPlayers = allowedPlayers;
     }
 
@@ -58,6 +61,7 @@ public class IslandInfo {
         tag.putInt("X", x);
         tag.putInt("Z", z);
         tag.putBoolean("IsNew", isNew);
+        tag.putBoolean("ShowBorder", showBorder);
         // 将 allowedPlayers 序列化为 LongArray（UUID 的高低 64 位交替存储）
         long[] uuidArray = new long[allowedPlayers.size() * 2];
         for (int i = 0; i < allowedPlayers.size(); i++) {
@@ -77,6 +81,8 @@ public class IslandInfo {
         int x = tag.getInt("X");
         int z = tag.getInt("Z");
         boolean isNew = tag.getBoolean("IsNew");
+        // 向后兼容：旧存档无 ShowBorder 字段时默认为 false
+        boolean showBorder = tag.contains("ShowBorder") && tag.getBoolean("ShowBorder");
 
         List<UUID> allowedPlayers = new ArrayList<>();
         if (tag.contains("AllowedPlayers", Tag.TAG_LONG_ARRAY)) {
@@ -86,7 +92,7 @@ public class IslandInfo {
             }
         }
 
-        return new IslandInfo(index, x, z, isNew, allowedPlayers);
+        return new IslandInfo(index, x, z, isNew, showBorder, allowedPlayers);
     }
 
     // ==================== Getters ====================
@@ -119,6 +125,18 @@ public class IslandInfo {
 
     public void setNew(boolean isNew) {
         this.isNew = isNew;
+    }
+
+    /**
+     * 是否显示领地边界粒子墙。
+     * 岛主可在管理面板中切换此选项。
+     */
+    public boolean isShowBorder() {
+        return showBorder;
+    }
+
+    public void setShowBorder(boolean showBorder) {
+        this.showBorder = showBorder;
     }
 
     /**

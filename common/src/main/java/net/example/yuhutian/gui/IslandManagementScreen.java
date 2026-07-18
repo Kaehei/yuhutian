@@ -3,6 +3,7 @@ package net.example.yuhutian.gui;
 import dev.architectury.networking.NetworkManager;
 import net.example.yuhutian.network.AddFriendPayload;
 import net.example.yuhutian.network.RemoveFriendPayload;
+import net.example.yuhutian.network.ToggleBorderPayload;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.CycleButton;
@@ -40,7 +41,7 @@ public class IslandManagementScreen extends AbstractContainerScreen<IslandManage
     public IslandManagementScreen(IslandManagementMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
         this.imageWidth = 220;
-        this.imageHeight = 200;
+        this.imageHeight = 230;
     }
 
     @Override
@@ -97,6 +98,18 @@ public class IslandManagementScreen extends AbstractContainerScreen<IslandManage
             y += 20;
             if (y > guiTop + 180) break;
         }
+
+        // 领地边界显示切换按钮
+        CycleButton<Boolean> borderToggle = CycleButton.<Boolean>builder(state ->
+                        Component.literal(state ? "§a显示边界: ON" : "§c显示边界: OFF"))
+                .withValues(true, false)
+                .withInitialValue(this.menu.isShowBorder())
+                .withTooltip(Tooltip.create(Component.literal("开启后靠近领地边界时显示粒子墙")))
+                .create(guiLeft + 10, guiTop + 198, 200, 20, Component.empty(),
+                        (button, newState) -> {
+                            NetworkManager.sendToServer(new ToggleBorderPayload(newState));
+                        });
+        this.addRenderableWidget(borderToggle);
     }
 
     private void onAddClicked() {

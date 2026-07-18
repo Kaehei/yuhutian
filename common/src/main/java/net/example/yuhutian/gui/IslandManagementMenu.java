@@ -39,6 +39,7 @@ public class IslandManagementMenu extends AbstractContainerMenu {
     private final String ownerName;
     private final List<UUID> allowedPlayers;
     private final Map<UUID, String> onlinePlayers;
+    private final boolean showBorder;
 
     /**
      * 服务端构造：由 NPC 交互触发。
@@ -49,6 +50,7 @@ public class IslandManagementMenu extends AbstractContainerMenu {
         this.islandZ = islandZ;
 
         String name = "Unknown";
+        boolean border = false;
         if (player instanceof ServerPlayer sp) {
             ServerLevel yuhutianLevel = sp.getServer().getLevel(YuhutianDimension.YUHUTIAN_LEVEL);
             if (yuhutianLevel != null) {
@@ -59,12 +61,14 @@ public class IslandManagementMenu extends AbstractContainerMenu {
                         if (ownerPlayer != null) {
                             name = ownerPlayer.getName().getString();
                         }
+                        border = entry.getValue().isShowBorder();
                         break;
                     }
                 }
             }
         }
         this.ownerName = name;
+        this.showBorder = border;
         this.allowedPlayers = getAllowedPlayersForIsland(player, islandX);
         this.onlinePlayers = new LinkedHashMap<>();
     }
@@ -86,6 +90,7 @@ public class IslandManagementMenu extends AbstractContainerMenu {
             this.ownerName = (String) pendingData[2];
             this.allowedPlayers = new ArrayList<>((List<UUID>) pendingData[3]);
             this.onlinePlayers = new LinkedHashMap<>((Map<UUID, String>) pendingData[4]);
+            this.showBorder = (boolean) pendingData[5];
             pendingData = null;
         } else {
             this.islandX = 0;
@@ -93,6 +98,7 @@ public class IslandManagementMenu extends AbstractContainerMenu {
             this.ownerName = "Unknown";
             this.allowedPlayers = new ArrayList<>();
             this.onlinePlayers = new LinkedHashMap<>();
+            this.showBorder = false;
         }
     }
 
@@ -118,6 +124,7 @@ public class IslandManagementMenu extends AbstractContainerMenu {
     public String getOwnerName() { return ownerName; }
     public List<UUID> getMenuAllowedPlayers() { return allowedPlayers; }
     public Map<UUID, String> getOnlinePlayers() { return onlinePlayers; }
+    public boolean isShowBorder() { return showBorder; }
 
     // ==================== AbstractContainerMenu 必须实现 ====================
 

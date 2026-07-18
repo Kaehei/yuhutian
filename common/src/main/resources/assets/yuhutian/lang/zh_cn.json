@@ -12,5 +12,10 @@
   "gui.yuhutian.friend_added": "已添加 %s 到信任列表。",
   "gui.yuhutian.friend_removed": "已从信任列表中移除该玩家。",
   "gui.yuhutian.player_not_found": "找不到玩家: %s",
-  "gui.yuhutian.cannot_add_self": "不能添加自己为好友！"
+  "gui.yuhutian.cannot_add_self": "不能添加自己为好友！",
+  "gui.yuhutian.show_border_on": "显示边界: ON",
+  "gui.yuhutian.show_border_off": "显示边界: OFF",
+  "gui.yuhutian.border_toggle_tooltip": "开启后靠近领地边界时显示粒子墙",
+  "gui.yuhutian.border_enabled": "已开启领地边界显示。",
+  "gui.yuhutian.border_disabled": "已关闭领地边界显示。"
 }

@@ -51,6 +51,16 @@ public final class NetworkInit {
                         handleRemoveFriend(player, payload.playerUuid());
                     });
                 });
+
+        // 注册 ToggleBorderPayload 接收器（切换领地边界粒子墙显示）
+        NetworkManager.registerReceiver(NetworkManager.c2s(),
+                ToggleBorderPayload.TYPE, ToggleBorderPayload.STREAM_CODEC,
+                (payload, context) -> {
+                    if (!(context.getPlayer() instanceof ServerPlayer player)) return;
+                    player.getServer().execute(() -> {
+                        handleToggleBorder(player, payload.showBorder());
+                    });
+                });
     }
 
     /**
@@ -66,7 +76,8 @@ public final class NetworkInit {
                             payload.islandZ(),
                             payload.ownerName(),
                             payload.allowedPlayers(),
-                            payload.onlinePlayers()
+                            payload.onlinePlayers(),
+                            payload.showBorder()
                     };
                 });
     }
@@ -129,6 +140,28 @@ public final class NetworkInit {
             data.setDirty();
             requester.displayClientMessage(
                     net.minecraft.network.chat.Component.literal("§a已从信任列表中移除该玩家。"), false);
+        }
+    }
+
+    /**
+     * 处理领地边界粒子墙显示切换。
+     * 仅当玩家拥有空岛时生效。
+     */
+    private static void handleToggleBorder(ServerPlayer requester, boolean showBorder) {
+        ServerLevel yuhutianLevel = requester.getServer().getLevel(YuhutianDimension.YUHUTIAN_LEVEL);
+        if (yuhutianLevel == null) return;
+
+        IslandSavedData data = IslandSavedData.getOrCreate(yuhutianLevel);
+
+        if (!data.hasIsland(requester.getUUID())) return;
+
+        IslandInfo island = data.getIsland(requester.getUUID());
+        if (island != null) {
+            island.setShowBorder(showBorder);
+            data.setDirty();
+            String status = showBorder ? "§a已开启领地边界显示。" : "§e已关闭领地边界显示。";
+            requester.displayClientMessage(
+                    net.minecraft.network.chat.Component.literal(status), false);
         }
     }
 }

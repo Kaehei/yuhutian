@@ -5,6 +5,7 @@ import dev.architectury.registry.registries.RegistrySupplier;
 import dev.architectury.registry.level.entity.EntityAttributeRegistry;
 import net.example.yuhutian.entity.IslandNPCEntity;
 import net.example.yuhutian.entity.ModEntities;
+import net.example.yuhutian.events.IslandBorderVisualizer;
 import net.example.yuhutian.events.IslandProtectionHandler;
 import net.example.yuhutian.gui.ModMenuTypes;
 import net.example.yuhutian.item.YuHuTianItem;
@@ -68,5 +69,8 @@ public class YuhutianMod {
 
         // ===== 注册领地保护事件监听 =====
         IslandProtectionHandler.register();
+
+        // ===== 注册领地边界粒子墙渲染（服务端 Tick 事件） =====
+        IslandBorderVisualizer.register();
     }
 }
