@@ -8,10 +8,8 @@ import net.example.yuhutian.world.IslandInfo;
 import net.example.yuhutian.world.IslandSavedData;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
 
-import java.util.Iterator;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -20,7 +18,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * 入场欢迎延迟触发管理器。
  * <p>
  * 当玩家传送到玉壶天维度时，不立即发送 Title 和音效数据包，
- * 而是将任务登记到延迟队列中。通过服务端 PlayerTick 事件倒计时，
+ * 而是将任务登记到延迟队列中。通过服务端 Level Tick 事件倒计时，
  * 等客户端完成维度切换和区块加载（约 20 刻 = 1 秒）后再正式触发。
  * </p>
  * <p>
@@ -51,7 +49,7 @@ public final class WelcomeTriggerManager {
      * 应在模组初始化时调用。
      */
     public static void register() {
-        TickEvent.PLAYER.register(WelcomeTriggerManager::onPlayerTick);
+        TickEvent.SERVER_LEVEL_PRE.register(WelcomeTriggerManager::onServerLevelTick);
         PlayerEvent.PLAYER_QUIT.register(WelcomeTriggerManager::onPlayerDisconnect);
     }
 
@@ -77,51 +75,43 @@ public final class WelcomeTriggerManager {
     // ==================== Tick 处理 ====================
 
     /**
-     * 每个玩家 Tick 调用一次（服务端 + 客户端均触发，内部过滤 ServerPlayer）。
+     * 每个服务端 Level Tick 调用一次。
+     * 仅处理玉壶天维度中的玩家，执行：
      * <ol>
      *   <li>倒计时并触发待执行的欢迎任务</li>
      *   <li>检测玩家进入玉壶天维度或维度内传送，自动登记新任务</li>
-     *   <li>玩家离开维度时清理跟踪数据</li>
      * </ol>
      */
-    private static void onPlayerTick(Player playerEntity) {
-        if (!(playerEntity instanceof ServerPlayer player)) return;
-        if (player.level().isClientSide()) return;
+    private static void onServerLevelTick(ServerLevel level) {
+        // 仅处理玉壶天维度
+        if (!level.dimension().equals(YuhutianDimension.YUHUTIAN_LEVEL)) return;
 
-        UUID uuid = player.getUUID();
+        for (ServerPlayer player : level.players()) {
+            UUID uuid = player.getUUID();
 
-        // 1. 倒计时并触发待执行的欢迎任务
-        WelcomeTask task = pendingTasks.get(uuid);
-        if (task != null) {
-            task.ticksLeft--;
-            if (task.ticksLeft <= 0) {
-                pendingTasks.remove(uuid);
-                YuHuTianItem.playGreetingCeremony(player, task.greetingText, task.greetingSound);
+            // 1. 倒计时并触发待执行的欢迎任务
+            WelcomeTask task = pendingTasks.get(uuid);
+            if (task != null) {
+                task.ticksLeft--;
+                if (task.ticksLeft <= 0) {
+                    pendingTasks.remove(uuid);
+                    YuHuTianItem.playGreetingCeremony(player, task.greetingText, task.greetingSound);
+                }
             }
-        }
 
-        // 2. 检测玩家进入玉壶天维度或维度内传送
-        ServerLevel yuhutianLevel = player.getServer().getLevel(YuhutianDimension.YUHUTIAN_LEVEL);
-        if (yuhutianLevel == null) return;
-
-        boolean inYuhutian = player.level().dimension().equals(YuhutianDimension.YUHUTIAN_LEVEL);
-
-        if (inYuhutian) {
+            // 2. 检测玩家进入玉壶天维度或维度内传送
             Vec3 currentPos = player.position();
             Vec3 lastPos = lastYuhutianPos.get(uuid);
 
             if (lastPos == null) {
                 // 玩家刚进入玉壶天维度 → 自动检测最近空岛并登记欢迎
-                autoRegisterForNearestIsland(player, yuhutianLevel);
+                autoRegisterForNearestIsland(player, level);
             } else if (lastPos.distanceTo(currentPos) > TELEPORT_THRESHOLD) {
                 // 维度内长距离位移 → 跨岛传送检测
-                autoRegisterForNearestIsland(player, yuhutianLevel);
+                autoRegisterForNearestIsland(player, level);
             }
 
             lastYuhutianPos.put(uuid, currentPos);
-        } else {
-            // 玩家不在玉壶天维度 → 清理跟踪数据
-            lastYuhutianPos.remove(uuid);
         }
     }
 
