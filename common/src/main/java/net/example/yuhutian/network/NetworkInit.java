@@ -61,6 +61,16 @@ public final class NetworkInit {
                         handleToggleBorder(player, payload.showBorder());
                     });
                 });
+
+        // 注册 UpdateGreetingPayload 接收器（更新欢迎寄语和音效）
+        NetworkManager.registerReceiver(NetworkManager.c2s(),
+                UpdateGreetingPayload.TYPE, UpdateGreetingPayload.STREAM_CODEC,
+                (payload, context) -> {
+                    if (!(context.getPlayer() instanceof ServerPlayer player)) return;
+                    player.getServer().execute(() -> {
+                        handleUpdateGreeting(player, payload.greetingText(), payload.greetingSound());
+                    });
+                });
     }
 
     /**
@@ -77,7 +87,9 @@ public final class NetworkInit {
                             payload.ownerName(),
                             payload.allowedPlayers(),
                             payload.onlinePlayers(),
-                            payload.showBorder()
+                            payload.showBorder(),
+                            payload.greetingText(),
+                            payload.greetingSound()
                     };
                 });
     }
@@ -162,6 +174,32 @@ public final class NetworkInit {
             String status = showBorder ? "§a已开启领地边界显示。" : "§e已关闭领地边界显示。";
             requester.displayClientMessage(
                     net.minecraft.network.chat.Component.literal(status), false);
+        }
+    }
+
+    /**
+     * 处理欢迎寄语与音效更新。
+     * 仅当发送者是该空岛 Owner 时生效。
+     */
+    private static void handleUpdateGreeting(ServerPlayer requester, String greetingText, String greetingSound) {
+        ServerLevel yuhutianLevel = requester.getServer().getLevel(YuhutianDimension.YUHUTIAN_LEVEL);
+        if (yuhutianLevel == null) return;
+
+        IslandSavedData data = IslandSavedData.getOrCreate(yuhutianLevel);
+
+        if (!data.hasIsland(requester.getUUID())) {
+            requester.displayClientMessage(
+                    net.minecraft.network.chat.Component.literal("§c你还没有空岛！"), false);
+            return;
+        }
+
+        IslandInfo island = data.getIsland(requester.getUUID());
+        if (island != null) {
+            island.setGreetingText(greetingText);
+            island.setGreetingSound(greetingSound);
+            data.setDirty();
+            requester.displayClientMessage(
+                    net.minecraft.network.chat.Component.literal("§a欢迎寄语已保存。"), false);
         }
     }
 }

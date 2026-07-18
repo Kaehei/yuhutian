@@ -18,11 +18,18 @@ import java.util.UUID;
  */
 public class IslandInfo {
 
+    /** 默认欢迎寄语 */
+    public static final String DEFAULT_GREETING_TEXT = "欢迎来到我的空岛！";
+    /** 默认提示音效（成就达成音） */
+    public static final String DEFAULT_GREETING_SOUND = "minecraft:entity.player.levelup";
+
     private final int index;
     private final int x;
     private final int z;
     private boolean isNew;
     private boolean showBorder;
+    private String greetingText;
+    private String greetingSound;
     private final List<UUID> allowedPlayers;
 
     /**
@@ -38,15 +45,20 @@ public class IslandInfo {
         this.z = 0;
         this.isNew = true;
         this.showBorder = false;
+        this.greetingText = DEFAULT_GREETING_TEXT;
+        this.greetingSound = DEFAULT_GREETING_SOUND;
         this.allowedPlayers = new ArrayList<>();
     }
 
-    private IslandInfo(int index, int x, int z, boolean isNew, boolean showBorder, List<UUID> allowedPlayers) {
+    private IslandInfo(int index, int x, int z, boolean isNew, boolean showBorder,
+                       String greetingText, String greetingSound, List<UUID> allowedPlayers) {
         this.index = index;
         this.x = x;
         this.z = z;
         this.isNew = isNew;
         this.showBorder = showBorder;
+        this.greetingText = greetingText;
+        this.greetingSound = greetingSound;
         this.allowedPlayers = allowedPlayers;
     }
 
@@ -62,6 +74,8 @@ public class IslandInfo {
         tag.putInt("Z", z);
         tag.putBoolean("IsNew", isNew);
         tag.putBoolean("ShowBorder", showBorder);
+        tag.putString("GreetingText", greetingText);
+        tag.putString("GreetingSound", greetingSound);
         // 将 allowedPlayers 序列化为 LongArray（UUID 的高低 64 位交替存储）
         long[] uuidArray = new long[allowedPlayers.size() * 2];
         for (int i = 0; i < allowedPlayers.size(); i++) {
@@ -83,6 +97,9 @@ public class IslandInfo {
         boolean isNew = tag.getBoolean("IsNew");
         // 向后兼容：旧存档无 ShowBorder 字段时默认为 false
         boolean showBorder = tag.contains("ShowBorder") && tag.getBoolean("ShowBorder");
+        // 向后兼容：旧存档无 Greeting 字段时使用默认值
+        String greetingText = tag.contains("GreetingText") ? tag.getString("GreetingText") : DEFAULT_GREETING_TEXT;
+        String greetingSound = tag.contains("GreetingSound") ? tag.getString("GreetingSound") : DEFAULT_GREETING_SOUND;
 
         List<UUID> allowedPlayers = new ArrayList<>();
         if (tag.contains("AllowedPlayers", Tag.TAG_LONG_ARRAY)) {
@@ -92,7 +109,7 @@ public class IslandInfo {
             }
         }
 
-        return new IslandInfo(index, x, z, isNew, showBorder, allowedPlayers);
+        return new IslandInfo(index, x, z, isNew, showBorder, greetingText, greetingSound, allowedPlayers);
     }
 
     // ==================== Getters ====================
@@ -137,6 +154,28 @@ public class IslandInfo {
 
     public void setShowBorder(boolean showBorder) {
         this.showBorder = showBorder;
+    }
+
+    /**
+     * 获取入场欢迎寄语文本。
+     */
+    public String getGreetingText() {
+        return greetingText;
+    }
+
+    public void setGreetingText(String greetingText) {
+        this.greetingText = greetingText;
+    }
+
+    /**
+     * 获取入场提示音效的 ResourceLocation 字符串。
+     */
+    public String getGreetingSound() {
+        return greetingSound;
+    }
+
+    public void setGreetingSound(String greetingSound) {
+        this.greetingSound = greetingSound;
     }
 
     /**

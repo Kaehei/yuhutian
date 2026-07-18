@@ -17,5 +17,10 @@
   "gui.yuhutian.show_border_off": "Show Border: OFF",
   "gui.yuhutian.border_toggle_tooltip": "Show particle wall near territory border",
   "gui.yuhutian.border_enabled": "Border display enabled.",
-  "gui.yuhutian.border_disabled": "Border display disabled."
+  "gui.yuhutian.border_disabled": "Border display disabled.",
+  "gui.yuhutian.greeting_section": "Welcome Greeting:",
+  "gui.yuhutian.greeting_sound_label": "Sound:",
+  "gui.yuhutian.greeting_save": "Save Greeting",
+  "gui.yuhutian.greeting_saved": "Welcome greeting saved.",
+  "gui.yuhutian.greeting_default_text": "Welcome to my island!"
 }

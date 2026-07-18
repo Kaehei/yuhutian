@@ -4,12 +4,17 @@ import net.example.yuhutian.YuhutianDimension;
 import net.example.yuhutian.world.IslandGenerator;
 import net.example.yuhutian.world.IslandInfo;
 import net.example.yuhutian.world.IslandSavedData;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.game.ClientboundSetSubtitleTextPacket;
+import net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket;
+import net.minecraft.network.protocol.game.ClientboundSetTitlesAnimationPacket;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.InteractionHand;
@@ -138,9 +143,38 @@ public class YuHuTianItem extends Item {
             serverPlayer.displayClientMessage(
                     Component.literal("§a已到达空岛！再次右键玉壶天可返回原处。"), false);
 
+            // ===== 入场欢迎仪式：Title + 自定义音效 =====
+            playGreetingCeremony(serverPlayer, island);
+
             return InteractionResultHolder.success(stack);
         }
 
         return InteractionResultHolder.pass(stack);
+    }
+
+    /**
+     * 入场欢迎仪式：向被传送的玩家发送 Title 和自定义音效。
+     *
+     * @param player 被传送的玩家
+     * @param island 目标空岛信息
+     */
+    private static void playGreetingCeremony(ServerPlayer player, IslandInfo island) {
+        // 1. 发送 Title 动画时序：淡入 10 tick，停留 40 tick，淡出 20 tick
+        player.connection.send(new ClientboundSetTitlesAnimationPacket(10, 40, 20));
+
+        // 2. 发送主标题（欢迎寄语文本）
+        player.connection.send(new ClientboundSetTitleTextPacket(
+                Component.literal("§6" + island.getGreetingText())));
+
+        // 3. 发送副标题（空岛坐标）
+        player.connection.send(new ClientboundSetSubtitleTextPacket(
+                Component.literal("§7空岛 #" + island.getIndex()
+                        + " (" + island.getX() + ", " + island.getZ() + ")")));
+
+        // 4. 播放自定义音效
+        ResourceLocation soundId = ResourceLocation.parse(island.getGreetingSound());
+        SoundEvent soundEvent = BuiltInRegistries.SOUND_EVENT.get(soundId)
+                .orElse(SoundEvents.PLAYER_LEVELUP);
+        player.playNotifySound(soundEvent, SoundSource.PLAYERS, 1.0F, 1.0F);
     }
 }

@@ -27,7 +27,9 @@ public record OpenIslandPayload(
         String ownerName,
         List<UUID> allowedPlayers,
         Map<UUID, String> onlinePlayers,
-        boolean showBorder
+        boolean showBorder,
+        String greetingText,
+        String greetingSound
 ) implements CustomPacketPayload {
 
     public static final Type<OpenIslandPayload> TYPE = new Type<>(
@@ -50,6 +52,8 @@ public record OpenIslandPayload(
             buf.writeUtf(entry.getValue(), 64);
         }
         buf.writeBoolean(payload.showBorder);
+        buf.writeUtf(payload.greetingText, 128);
+        buf.writeUtf(payload.greetingSound, 128);
     }
 
     private static OpenIslandPayload read(RegistryFriendlyByteBuf buf) {
@@ -69,7 +73,9 @@ public record OpenIslandPayload(
             onlinePlayers.put(uuid, name);
         }
         boolean showBorder = buf.readBoolean();
-        return new OpenIslandPayload(islandX, islandZ, ownerName, players, onlinePlayers, showBorder);
+        String greetingText = buf.readUtf(128);
+        String greetingSound = buf.readUtf(128);
+        return new OpenIslandPayload(islandX, islandZ, ownerName, players, onlinePlayers, showBorder, greetingText, greetingSound);
     }
 
     @Override

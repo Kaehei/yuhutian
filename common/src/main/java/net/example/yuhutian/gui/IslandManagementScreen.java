@@ -4,9 +4,12 @@ import dev.architectury.networking.NetworkManager;
 import net.example.yuhutian.network.AddFriendPayload;
 import net.example.yuhutian.network.RemoveFriendPayload;
 import net.example.yuhutian.network.ToggleBorderPayload;
+import net.example.yuhutian.network.UpdateGreetingPayload;
+import net.example.yuhutian.world.IslandInfo;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.CycleButton;
+import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
@@ -38,10 +41,25 @@ public class IslandManagementScreen extends AbstractContainerScreen<IslandManage
     /** 玩家 UUID → 名字的映射 */
     private Map<UUID, String> playerNameMap = Map.of();
 
+    /** 欢迎寄语输入框 */
+    private EditBox greetingEditBox;
+    /** 当前选中的音效 ResourceLocation 字符串 */
+    private String selectedSound;
+
+    /** 预设音效选项：显示名 → ResourceLocation 字符串 */
+    private static final String[][] SOUND_OPTIONS = {
+            {"成就达成", "minecraft:entity.player.levelup"},
+            {"钟声", "minecraft:block.bell.use"},
+            {"竖琴", "minecraft:block.note_block.harp"},
+            {"铃声", "minecraft:block.note_block.bell"},
+            {"木琴", "minecraft:block.note_block.xylophone"},
+            {"猫叫", "minecraft:entity.cat.purr"},
+    };
+
     public IslandManagementScreen(IslandManagementMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
         this.imageWidth = 220;
-        this.imageHeight = 230;
+        this.imageHeight = 340;
     }
 
     @Override
@@ -110,6 +128,45 @@ public class IslandManagementScreen extends AbstractContainerScreen<IslandManage
                             NetworkManager.sendToServer(new ToggleBorderPayload(newState));
                         });
         this.addRenderableWidget(borderToggle);
+
+        // ===== 欢迎寄语编辑区 =====
+        this.selectedSound = this.menu.getGreetingSound();
+
+        // 寄语输入框
+        this.greetingEditBox = new EditBox(this.font, guiLeft + 10, guiTop + 240, 200, 20,
+                Component.literal(""));
+        this.greetingEditBox.setMaxLength(128);
+        this.greetingEditBox.setValue(this.menu.getGreetingText());
+        this.addRenderableWidget(this.greetingEditBox);
+
+        // 音效选择下拉按钮（用 Integer 索引映射到 SOUND_OPTIONS）
+        int initialSoundIndex = 0;
+        for (int i = 0; i < SOUND_OPTIONS.length; i++) {
+            if (SOUND_OPTIONS[i][1].equals(this.selectedSound)) {
+                initialSoundIndex = i;
+                break;
+            }
+        }
+        List<Integer> soundIndices = new ArrayList<>();
+        for (int i = 0; i < SOUND_OPTIONS.length; i++) soundIndices.add(i);
+
+        CycleButton<Integer> soundDropdown = CycleButton.<Integer>builder(idx ->
+                        Component.literal(SOUND_OPTIONS[idx][0]))
+                .withValues(soundIndices)
+                .withInitialValue(initialSoundIndex)
+                .create(guiLeft + 10, guiTop + 274, 120, 20, Component.literal("音效:"),
+                        (button, newIdx) -> {
+                            selectedSound = SOUND_OPTIONS[newIdx][1];
+                        });
+        this.addRenderableWidget(soundDropdown);
+
+        // 保存按钮
+        Button saveGreetingBtn = Button.builder(Component.literal("保存寄语"), button -> {
+            String text = greetingEditBox.getValue();
+            if (text.isEmpty()) text = IslandInfo.DEFAULT_GREETING_TEXT;
+            NetworkManager.sendToServer(new UpdateGreetingPayload(text, selectedSound));
+        }).pos(guiLeft + 135, guiTop + 273).size(75, 22).build();
+        this.addRenderableWidget(saveGreetingBtn);
     }
 
     private void onAddClicked() {
@@ -177,6 +234,13 @@ public class IslandManagementScreen extends AbstractContainerScreen<IslandManage
         // 下拉按钮上方标签
         graphics.drawString(this.font, "添加在线玩家:",
                 guiLeft + 10, guiTop + 106, 0xAAAAAA, false);
+
+        // ===== 欢迎寄语区标签 =====
+        // 分隔线
+        graphics.fill(guiLeft + 10, guiTop + 222, guiLeft + 210, guiTop + 223, 0x80FFFFFF);
+
+        graphics.drawString(this.font, "§n欢迎寄语:",
+                guiLeft + 10, guiTop + 228, 0xAAAAAA, false);
 
         this.renderTooltip(graphics, mouseX, mouseY);
     }

@@ -17,5 +17,10 @@
   "gui.yuhutian.show_border_off": "显示边界: OFF",
   "gui.yuhutian.border_toggle_tooltip": "开启后靠近领地边界时显示粒子墙",
   "gui.yuhutian.border_enabled": "已开启领地边界显示。",
-  "gui.yuhutian.border_disabled": "已关闭领地边界显示。"
+  "gui.yuhutian.border_disabled": "已关闭领地边界显示。",
+  "gui.yuhutian.greeting_section": "欢迎寄语:",
+  "gui.yuhutian.greeting_sound_label": "音效:",
+  "gui.yuhutian.greeting_save": "保存寄语",
+  "gui.yuhutian.greeting_saved": "欢迎寄语已保存。",
+  "gui.yuhutian.greeting_default_text": "欢迎来到我的空岛！"
 }

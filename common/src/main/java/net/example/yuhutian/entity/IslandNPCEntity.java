@@ -166,7 +166,8 @@ public class IslandNPCEntity extends PathfinderMob {
 
         List<UUID> allowedList = new ArrayList<>(island.getAllowedPlayers());
         NetworkManager.sendToPlayer(serverPlayer,
-                new OpenIslandPayload(island.getX(), island.getZ(), ownerName, allowedList, onlinePlayers, island.isShowBorder()));
+                new OpenIslandPayload(island.getX(), island.getZ(), ownerName, allowedList, onlinePlayers,
+                        island.isShowBorder(), island.getGreetingText(), island.getGreetingSound()));
 
         // 打开管理面板 GUI（无额外 buffer 数据）
         serverPlayer.openMenu(new MenuProvider() {
