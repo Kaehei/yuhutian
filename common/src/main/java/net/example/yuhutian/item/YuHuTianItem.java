@@ -173,8 +173,8 @@ public class YuHuTianItem extends Item {
 
         // 4. 播放自定义音效
         ResourceLocation soundId = ResourceLocation.parse(island.getGreetingSound());
-        SoundEvent soundEvent = BuiltInRegistries.SOUND_EVENT.get(soundId)
-                .orElse(SoundEvents.PLAYER_LEVELUP);
+        SoundEvent soundEvent = BuiltInRegistries.SOUND_EVENT.get(soundId);
+        if (soundEvent == null) soundEvent = SoundEvents.PLAYER_LEVELUP;
         player.playNotifySound(soundEvent, SoundSource.PLAYERS, 1.0F, 1.0F);
     }
 }
