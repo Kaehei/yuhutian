@@ -1,6 +1,6 @@
 package net.example.yuhutian.events;
 
-import com.mojang.math.Vector3f;
+import org.joml.Vector3f;
 import dev.architectury.event.events.common.TickEvent;
 import net.example.yuhutian.YuhutianDimension;
 import net.example.yuhutian.world.IslandInfo;
