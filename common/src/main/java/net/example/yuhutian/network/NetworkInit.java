@@ -131,7 +131,8 @@ public final class NetworkInit {
                             payload.showBorder(),
                             payload.enableGreeting(),
                             payload.greetingText(),
-                            payload.greetingSound()
+                            payload.greetingSound(),
+                            payload.trustedPlayerNames()
                     };
                 });
 

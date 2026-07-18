@@ -165,10 +165,25 @@ public class IslandNPCEntity extends PathfinderMob {
         }
 
         List<UUID> allowedList = new ArrayList<>(island.getAllowedPlayers());
+
+        // 解析信任玩家名字（在线 + 离线 ProfileCache）
+        Map<UUID, String> trustedNames = new LinkedHashMap<>();
+        for (UUID uuid : allowedList) {
+            ServerPlayer online = serverPlayer.getServer().getPlayerList().getPlayer(uuid);
+            if (online != null) {
+                trustedNames.put(uuid, online.getName().getString());
+            } else {
+                serverPlayer.getServer().getProfileCache().get(uuid).ifPresentOrElse(
+                        profile -> trustedNames.put(uuid, profile.getName()),
+                        () -> trustedNames.put(uuid, uuid.toString().substring(0, 8) + "...")
+                );
+            }
+        }
+
         NetworkManager.sendToPlayer(serverPlayer,
                 new OpenIslandPayload(island.getX(), island.getZ(), ownerName, allowedList, onlinePlayers,
                         island.isShowBorder(), island.isEnableGreeting(),
-                        island.getGreetingText(), island.getGreetingSound()));
+                        island.getGreetingText(), island.getGreetingSound(), trustedNames));
 
         // 打开管理面板 GUI（无额外 buffer 数据）
         serverPlayer.openMenu(new MenuProvider() {

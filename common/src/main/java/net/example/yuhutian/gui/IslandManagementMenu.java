@@ -110,12 +110,8 @@ public class IslandManagementMenu extends AbstractContainerMenu {
             this.enableGreeting = (boolean) pendingData[6];
             this.greetingText = (String) pendingData[7];
             this.greetingSound = (String) pendingData[8];
-            // 初始化信任玩家名字映射：从在线玩家列表中查找
-            for (UUID uuid : this.allowedPlayers) {
-                String name = this.onlinePlayers.getOrDefault(uuid,
-                        uuid.toString().substring(0, 8) + "...");
-                this.trustedPlayerNames.put(uuid, name);
-            }
+            // 使用服务端预解析的信任玩家名字映射（含离线玩家）
+            this.trustedPlayerNames = new LinkedHashMap<>((Map<UUID, String>) pendingData[9]);
             pendingData = null;
         } else {
             this.islandX = 0;

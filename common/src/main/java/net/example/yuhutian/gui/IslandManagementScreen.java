@@ -468,10 +468,8 @@ public class IslandManagementScreen extends AbstractContainerScreen<IslandManage
             }
         }
 
-        if (super.mouseClicked(mx, my, btn)) return true;
-
-        // Tab 3: 点击拜访列表条目直接传送
-        if (currentTab == TAB_VISIT) {
+        // Tab 3: 点击拜访列表条目直接传送（必须在 super.mouseClicked 之前检测）
+        if (currentTab == TAB_VISIT && !visitableEntries.isEmpty()) {
             int cx = this.leftPos + SIDEBAR_W + 10;
             int cw = this.imageWidth - SIDEBAR_W - 18;
             int listTop = this.topPos + 66;
@@ -489,6 +487,9 @@ public class IslandManagementScreen extends AbstractContainerScreen<IslandManage
                 }
             }
         }
+
+        if (super.mouseClicked(mx, my, btn)) return true;
+
         return false;
     }
 

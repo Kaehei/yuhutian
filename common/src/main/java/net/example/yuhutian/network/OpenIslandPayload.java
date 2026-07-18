@@ -30,7 +30,8 @@ public record OpenIslandPayload(
         boolean showBorder,
         boolean enableGreeting,
         String greetingText,
-        String greetingSound
+        String greetingSound,
+        Map<UUID, String> trustedPlayerNames
 ) implements CustomPacketPayload {
 
     public static final Type<OpenIslandPayload> TYPE = new Type<>(
@@ -56,6 +57,11 @@ public record OpenIslandPayload(
         buf.writeBoolean(payload.enableGreeting);
         buf.writeUtf(payload.greetingText, 128);
         buf.writeUtf(payload.greetingSound, 128);
+        buf.writeInt(payload.trustedPlayerNames.size());
+        for (Map.Entry<UUID, String> entry : payload.trustedPlayerNames.entrySet()) {
+            buf.writeUUID(entry.getKey());
+            buf.writeUtf(entry.getValue(), 64);
+        }
     }
 
     private static OpenIslandPayload read(RegistryFriendlyByteBuf buf) {
@@ -78,8 +84,15 @@ public record OpenIslandPayload(
         boolean enableGreeting = buf.readBoolean();
         String greetingText = buf.readUtf(128);
         String greetingSound = buf.readUtf(128);
+        int trustedCount = buf.readInt();
+        Map<UUID, String> trustedNames = new LinkedHashMap<>(trustedCount);
+        for (int i = 0; i < trustedCount; i++) {
+            UUID uuid = buf.readUUID();
+            String name = buf.readUtf(64);
+            trustedNames.put(uuid, name);
+        }
         return new OpenIslandPayload(islandX, islandZ, ownerName, players, onlinePlayers,
-                showBorder, enableGreeting, greetingText, greetingSound);
+                showBorder, enableGreeting, greetingText, greetingSound, trustedNames);
     }
 
     @Override
