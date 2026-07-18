@@ -7,6 +7,7 @@ import net.example.yuhutian.entity.IslandNPCEntity;
 import net.example.yuhutian.entity.ModEntities;
 import net.example.yuhutian.events.IslandBorderVisualizer;
 import net.example.yuhutian.events.IslandProtectionHandler;
+import net.example.yuhutian.events.WelcomeTriggerManager;
 import net.example.yuhutian.gui.ModMenuTypes;
 import net.example.yuhutian.item.YuHuTianItem;
 import net.example.yuhutian.network.NetworkInit;
@@ -72,5 +73,8 @@ public class YuhutianMod {
 
         // ===== 注册领地边界粒子墙渲染（服务端 Tick 事件） =====
         IslandBorderVisualizer.register();
+
+        // ===== 注册入场欢迎延迟触发器（PlayerTick 倒计时） =====
+        WelcomeTriggerManager.register();
     }
 }

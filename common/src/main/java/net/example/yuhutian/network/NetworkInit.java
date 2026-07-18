@@ -2,6 +2,7 @@ package net.example.yuhutian.network;
 
 import dev.architectury.networking.NetworkManager;
 import net.example.yuhutian.YuhutianDimension;
+import net.example.yuhutian.events.WelcomeTriggerManager;
 import net.example.yuhutian.gui.IslandManagementMenu;
 import net.example.yuhutian.item.YuHuTianItem;
 import net.example.yuhutian.world.IslandGenerator;
@@ -384,10 +385,9 @@ public final class NetworkInit {
         yuhutianLevel.playSound(null, targetX, targetY, targetZ,
                 SoundEvents.ENDERMAN_TELEPORT, SoundSource.PLAYERS, 1.0F, 1.0F);
 
-        // 触发入场欢迎仪式（仅在岛主开启时播放 Title + 自定义音效）
-        if (targetIsland.isEnableGreeting()) {
-            YuHuTianItem.playGreetingCeremony(requester, targetIsland);
-        }
+        // 入场欢迎仪式：注册延迟触发（等待客户端加载完毕后再发送 Title + 音效）
+        WelcomeTriggerManager.registerDelayedWelcome(requester,
+                targetIsland.getGreetingText(), targetIsland.getGreetingSound(), targetIsland.isEnableGreeting());
 
         requester.displayClientMessage(
                 Component.literal("§a已传送到空岛！再次右键玉壶天可返回原处。"), false);

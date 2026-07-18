@@ -1,6 +1,7 @@
 package net.example.yuhutian.item;
 
 import net.example.yuhutian.YuhutianDimension;
+import net.example.yuhutian.events.WelcomeTriggerManager;
 import net.example.yuhutian.world.IslandGenerator;
 import net.example.yuhutian.world.IslandInfo;
 import net.example.yuhutian.world.IslandSavedData;
@@ -143,10 +144,9 @@ public class YuHuTianItem extends Item {
             serverPlayer.displayClientMessage(
                     Component.literal("§a已到达空岛！再次右键玉壶天可返回原处。"), false);
 
-            // ===== 入场欢迎仪式：仅在岛主开启时触发 =====
-            if (island.isEnableGreeting()) {
-                playGreetingCeremony(serverPlayer, island);
-            }
+            // 入场欢迎仪式：注册延迟触发（等待客户端加载完毕后再发送 Title + 音效）
+            WelcomeTriggerManager.registerDelayedWelcome(serverPlayer,
+                    island.getGreetingText(), island.getGreetingSound(), island.isEnableGreeting());
 
             return InteractionResultHolder.success(stack);
         }
@@ -161,20 +161,31 @@ public class YuHuTianItem extends Item {
      * @param island 目标空岛信息
      */
     public static void playGreetingCeremony(ServerPlayer player, IslandInfo island) {
+        playGreetingCeremony(player, island.getGreetingText(), island.getGreetingSound());
+    }
+
+    /**
+     * 入场欢迎仪式（重载）：直接接受寄语文本和音效字符串。
+     * 供 {@link net.example.yuhutian.events.WelcomeTriggerManager} 延迟触发时使用。
+     *
+     * @param player        被传送的玩家
+     * @param greetingText  欢迎寄语文本
+     * @param greetingSound 音效 ResourceLocation 字符串
+     */
+    public static void playGreetingCeremony(ServerPlayer player, String greetingText, String greetingSound) {
         // 1. 发送 Title 动画时序：淡入 10 tick，停留 40 tick，淡出 20 tick
         player.connection.send(new ClientboundSetTitlesAnimationPacket(10, 40, 20));
 
         // 2. 发送主标题（欢迎寄语文本）
         player.connection.send(new ClientboundSetTitleTextPacket(
-                Component.literal("§6" + island.getGreetingText())));
+                Component.literal("§6" + greetingText)));
 
-        // 3. 发送副标题（空岛坐标）
+        // 3. 发送副标题（通用欢迎提示）
         player.connection.send(new ClientboundSetSubtitleTextPacket(
-                Component.literal("§7空岛 #" + island.getIndex()
-                        + " (" + island.getX() + ", " + island.getZ() + ")")));
+                Component.literal("§7欢迎来到这片洞天福地")));
 
         // 4. 播放自定义音效
-        ResourceLocation soundId = ResourceLocation.parse(island.getGreetingSound());
+        ResourceLocation soundId = ResourceLocation.parse(greetingSound);
         SoundEvent soundEvent = BuiltInRegistries.SOUND_EVENT.get(soundId);
         if (soundEvent == null) soundEvent = SoundEvents.PLAYER_LEVELUP;
         player.playNotifySound(soundEvent, SoundSource.PLAYERS, 1.0F, 1.0F);
