@@ -13,6 +13,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.MenuProvider;
+import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.PathfinderMob;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
@@ -71,6 +72,14 @@ public class IslandNPCEntity extends PathfinderMob {
             this.setDeltaMovement(0, 0, 0);
             this.fallDistance = 0;
         }
+    }
+
+    /**
+     * 重写伤害处理：NPC 完全无敌，免疫所有伤害源。
+     */
+    @Override
+    public boolean hurt(DamageSource source, float amount) {
+        return false;
     }
 
     @Override
