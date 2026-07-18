@@ -312,13 +312,16 @@ public final class NetworkInit {
 
             // 筛选：请求者是岛主或在信任列表中
             if (ownerUuid.equals(requester.getUUID()) || info.isAllowed(requester.getUUID())) {
-                // 解析岛主名称
+                // 解析岛主名称（在线 + 离线 ProfileCache）
                 String ownerName;
                 ServerPlayer ownerPlayer = requester.getServer().getPlayerList().getPlayer(ownerUuid);
                 if (ownerPlayer != null) {
                     ownerName = ownerPlayer.getName().getString();
                 } else {
-                    ownerName = ownerUuid.toString().substring(0, 8) + "...";
+                    ownerName = requester.getServer().getProfileCache()
+                            .get(ownerUuid)
+                            .map(profile -> profile.getName())
+                            .orElse(ownerUuid.toString().substring(0, 8) + "...");
                 }
                 entries.add(new SyncVisitableIslandsPayload.IslandEntry(
                         ownerName, info.getIndex(), ownerUuid));
@@ -372,7 +375,7 @@ public final class NetworkInit {
 
         double targetX = targetIsland.getX() + 0.5;
         double targetZ = targetIsland.getZ() + 0.5;
-        double targetY = 65.0;
+        double targetY = 106.0;
 
         // 播放离开音效
         requester.level().playSound(null, requester.getX(), requester.getY(), requester.getZ(),
