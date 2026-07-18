@@ -31,6 +31,7 @@ public class IslandInfo {
     private boolean enableGreeting;
     private String greetingText;
     private String greetingSound;
+    private UUID npcUuid;
     private final List<UUID> allowedPlayers;
 
     /**
@@ -49,12 +50,13 @@ public class IslandInfo {
         this.enableGreeting = true;
         this.greetingText = DEFAULT_GREETING_TEXT;
         this.greetingSound = DEFAULT_GREETING_SOUND;
+        this.npcUuid = null;
         this.allowedPlayers = new ArrayList<>();
     }
 
     private IslandInfo(int index, int x, int z, boolean isNew, boolean showBorder,
                        boolean enableGreeting, String greetingText, String greetingSound,
-                       List<UUID> allowedPlayers) {
+                       UUID npcUuid, List<UUID> allowedPlayers) {
         this.index = index;
         this.x = x;
         this.z = z;
@@ -63,6 +65,7 @@ public class IslandInfo {
         this.enableGreeting = enableGreeting;
         this.greetingText = greetingText;
         this.greetingSound = greetingSound;
+        this.npcUuid = npcUuid;
         this.allowedPlayers = allowedPlayers;
     }
 
@@ -81,6 +84,10 @@ public class IslandInfo {
         tag.putBoolean("EnableGreeting", enableGreeting);
         tag.putString("GreetingText", greetingText);
         tag.putString("GreetingSound", greetingSound);
+        // 序列化 NPC UUID（如果存在）
+        if (npcUuid != null) {
+            tag.putUUID("NpcUuid", npcUuid);
+        }
         // 将 allowedPlayers 序列化为 LongArray（UUID 的高低 64 位交替存储）
         long[] uuidArray = new long[allowedPlayers.size() * 2];
         for (int i = 0; i < allowedPlayers.size(); i++) {
@@ -107,6 +114,8 @@ public class IslandInfo {
         // 向后兼容：旧存档无 Greeting 字段时使用默认值
         String greetingText = tag.contains("GreetingText") ? tag.getString("GreetingText") : DEFAULT_GREETING_TEXT;
         String greetingSound = tag.contains("GreetingSound") ? tag.getString("GreetingSound") : DEFAULT_GREETING_SOUND;
+        // 向后兼容：旧存档无 NpcUuid 字段时为 null
+        UUID npcUuid = tag.contains("NpcUuid") ? tag.getUUID("NpcUuid") : null;
 
         List<UUID> allowedPlayers = new ArrayList<>();
         if (tag.contains("AllowedPlayers", Tag.TAG_LONG_ARRAY)) {
@@ -117,7 +126,7 @@ public class IslandInfo {
         }
 
         return new IslandInfo(index, x, z, isNew, showBorder, enableGreeting,
-                greetingText, greetingSound, allowedPlayers);
+                greetingText, greetingSound, npcUuid, allowedPlayers);
     }
 
     // ==================== Getters ====================
@@ -184,6 +193,17 @@ public class IslandInfo {
 
     public void setGreetingSound(String greetingSound) {
         this.greetingSound = greetingSound;
+    }
+
+    /**
+     * 获取该空岛 NPC 的 UUID（用于检测和重生）。
+     */
+    public UUID getNpcUuid() {
+        return npcUuid;
+    }
+
+    public void setNpcUuid(UUID npcUuid) {
+        this.npcUuid = npcUuid;
     }
 
     /**

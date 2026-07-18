@@ -119,8 +119,11 @@ public class YuHuTianItem extends Item {
 
             // 如果是新分配的岛屿，生成结构并召唤 NPC
             if (newlyAllocated && island.isNew()) {
-                IslandGenerator.generate(yuhutianLevel, island.getX(), island.getZ());
+                IslandGenerator.generate(yuhutianLevel, island);
                 island.setNew(false);
+            } else {
+                // 岛主返回自己的岛屿时，确保 NPC 存在（如果被打死则自动重生）
+                IslandGenerator.ensureNpcExists(yuhutianLevel, island, data);
             }
 
             data.setDirty();
