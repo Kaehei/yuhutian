@@ -28,6 +28,7 @@ public class IslandInfo {
     private final int z;
     private boolean isNew;
     private boolean showBorder;
+    private boolean enableGreeting;
     private String greetingText;
     private String greetingSound;
     private final List<UUID> allowedPlayers;
@@ -45,18 +46,21 @@ public class IslandInfo {
         this.z = 0;
         this.isNew = true;
         this.showBorder = false;
+        this.enableGreeting = true;
         this.greetingText = DEFAULT_GREETING_TEXT;
         this.greetingSound = DEFAULT_GREETING_SOUND;
         this.allowedPlayers = new ArrayList<>();
     }
 
     private IslandInfo(int index, int x, int z, boolean isNew, boolean showBorder,
-                       String greetingText, String greetingSound, List<UUID> allowedPlayers) {
+                       boolean enableGreeting, String greetingText, String greetingSound,
+                       List<UUID> allowedPlayers) {
         this.index = index;
         this.x = x;
         this.z = z;
         this.isNew = isNew;
         this.showBorder = showBorder;
+        this.enableGreeting = enableGreeting;
         this.greetingText = greetingText;
         this.greetingSound = greetingSound;
         this.allowedPlayers = allowedPlayers;
@@ -74,6 +78,7 @@ public class IslandInfo {
         tag.putInt("Z", z);
         tag.putBoolean("IsNew", isNew);
         tag.putBoolean("ShowBorder", showBorder);
+        tag.putBoolean("EnableGreeting", enableGreeting);
         tag.putString("GreetingText", greetingText);
         tag.putString("GreetingSound", greetingSound);
         // 将 allowedPlayers 序列化为 LongArray（UUID 的高低 64 位交替存储）
@@ -97,6 +102,8 @@ public class IslandInfo {
         boolean isNew = tag.getBoolean("IsNew");
         // 向后兼容：旧存档无 ShowBorder 字段时默认为 false
         boolean showBorder = tag.contains("ShowBorder") && tag.getBoolean("ShowBorder");
+        // 向后兼容：旧存档无 EnableGreeting 字段时默认为 true
+        boolean enableGreeting = !tag.contains("EnableGreeting") || tag.getBoolean("EnableGreeting");
         // 向后兼容：旧存档无 Greeting 字段时使用默认值
         String greetingText = tag.contains("GreetingText") ? tag.getString("GreetingText") : DEFAULT_GREETING_TEXT;
         String greetingSound = tag.contains("GreetingSound") ? tag.getString("GreetingSound") : DEFAULT_GREETING_SOUND;
@@ -109,7 +116,8 @@ public class IslandInfo {
             }
         }
 
-        return new IslandInfo(index, x, z, isNew, showBorder, greetingText, greetingSound, allowedPlayers);
+        return new IslandInfo(index, x, z, isNew, showBorder, enableGreeting,
+                greetingText, greetingSound, allowedPlayers);
     }
 
     // ==================== Getters ====================
@@ -176,6 +184,18 @@ public class IslandInfo {
 
     public void setGreetingSound(String greetingSound) {
         this.greetingSound = greetingSound;
+    }
+
+    /**
+     * 是否启用入场欢迎仪式（Title + 音效）。
+     * 默认开启，岛主可关闭。
+     */
+    public boolean isEnableGreeting() {
+        return enableGreeting;
+    }
+
+    public void setEnableGreeting(boolean enableGreeting) {
+        this.enableGreeting = enableGreeting;
     }
 
     /**

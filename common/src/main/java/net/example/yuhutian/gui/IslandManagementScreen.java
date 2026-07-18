@@ -1,22 +1,19 @@
 package net.example.yuhutian.gui;
 
 import dev.architectury.networking.NetworkManager;
-import net.example.yuhutian.network.AddFriendPayload;
-import net.example.yuhutian.network.RemoveFriendPayload;
-import net.example.yuhutian.network.RequestVisitableIslandsPayload;
-import net.example.yuhutian.network.SyncVisitableIslandsPayload;
-import net.example.yuhutian.network.TeleportToIslandPayload;
-import net.example.yuhutian.network.ToggleBorderPayload;
-import net.example.yuhutian.network.UpdateGreetingPayload;
+import net.example.yuhutian.network.*;
 import net.example.yuhutian.world.IslandInfo;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.Checkbox;
 import net.minecraft.client.gui.components.CycleButton;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.Tooltip;
+import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
+import com.mojang.blaze3d.platform.InputConstants;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -25,30 +22,51 @@ import java.util.Objects;
 import java.util.UUID;
 
 /**
- * 空岛管理面板的客户端渲染 Screen。
+ * 空岛管理面板 — 侧边栏标签页布局。
  * <p>
- * 使用 {@link CycleButton} 循环按钮替代旧版 EditBox，
- * 从服务端同步的在线玩家列表中选择目标玩家，彻底杜绝拼写错误。
- * </p>
- * <p>
- * 所有 Widget 在 init() 中创建一次，避免 render() 中每帧重建导致内存泄漏。
+ * 左侧固定侧边栏包含三个标签页按钮，右侧为对应内容区域。
+ * 通过 currentTab 状态控制当前显示的组件分组，切换标签页时
+ * 清除旧组件并重建新组件，确保页面不重叠不错乱。
  * </p>
  */
 public class IslandManagementScreen extends AbstractContainerScreen<IslandManagementMenu> {
 
-    private CycleButton<UUID> playerDropdown;
-    private Button addButton;
-    private final List<Button> removeButtons = new ArrayList<>();
+    // ==================== 布局常量 ====================
+    private static final int SIDEBAR_WIDTH = 42;
+    private static final int TAB_BTN_H = 36;
+    private static final int TAB_GAP = 3;
 
-    /** 当前可被添加的在线玩家 UUID 列表（排除岛主） */
-    private List<UUID> availablePlayerUuids = new ArrayList<>();
-    /** 玩家 UUID → 名字的映射 */
-    private Map<UUID, String> playerNameMap = Map.of();
+    // 颜色
+    private static final int CLR_BG          = 0xDD16213E;
+    private static final int CLR_SIDEBAR     = 0xFF0F1629;
+    private static final int CLR_ACTIVE_TAB  = 0xFF1A1A2E;
+    private static final int CLR_INACTIVE    = 0xFF2A2A4A;
 
-    /** 欢迎寄语输入框 */
+    // 标签页索引
+    private static final int TAB_TERRITORY = 0;
+    private static final int TAB_SETTINGS  = 1;
+    private static final int TAB_VISIT     = 2;
+
+    private static final String[] TAB_NAMES = {"§l管理", "§l设置", "§l传书"};
+
+    // ==================== 状态 ====================
+    private int currentTab = TAB_TERRITORY;
+
+    /** 当前标签页动态创建的组件（切换时批量移除） */
+    private final List<AbstractWidget> tabWidgets = new ArrayList<>();
+
+    // Tab 2 缓存（切换标签页时保留编辑框文本和音效选择）
+    private String cachedGreetingText;
+    private String cachedSelectedSound;
+    private Checkbox greetingToggle;
     private EditBox greetingEditBox;
-    /** 当前选中的音效 ResourceLocation 字符串 */
-    private String selectedSound;
+
+    // Tab 3 拜访列表
+    public static List<SyncVisitableIslandsPayload.IslandEntry> visitPendingData = null;
+    private List<SyncVisitableIslandsPayload.IslandEntry> visitableEntries = new ArrayList<>();
+    private UUID selectedVisitUuid;
+    private int visitScrollOffset;
+    private Button teleportButton;
 
     /** 预设音效选项：显示名 → ResourceLocation 字符串 */
     private static final String[][] SOUND_OPTIONS = {
@@ -58,325 +76,421 @@ public class IslandManagementScreen extends AbstractContainerScreen<IslandManage
             {"铃声", "minecraft:block.note_block.bell"},
             {"木琴", "minecraft:block.note_block.xylophone"},
             {"猫叫", "minecraft:entity.cat.purr"},
+            {"§6§l挑战达成", "minecraft:ui.toast.challenge_complete"},
     };
 
-    /** S2C 拜访列表缓冲区：SyncVisitableIslandsPayload 写入，init() 读取 */
-    public static List<SyncVisitableIslandsPayload.IslandEntry> visitPendingData = null;
+    // ==================== 构造 ====================
 
-    /** 可拜访的空岛条目列表 */
-    private List<SyncVisitableIslandsPayload.IslandEntry> visitableEntries = new ArrayList<>();
-    /** 当前选中的拜访目标岛主 UUID */
-    private UUID selectedVisitUuid = null;
-    /** 拜访列表滚动偏移量（条目数） */
-    private int visitScrollOffset = 0;
-    /** 传送按钮引用（用于启用/禁用） */
-    private Button teleportButton;
-
-    public IslandManagementScreen(IslandManagementMenu menu, Inventory inventory, Component title) {
-        super(menu, inventory, title);
-        this.imageWidth = 220;
-        this.imageHeight = 470;
+    public IslandManagementScreen(IslandManagementMenu menu, Inventory inv, Component title) {
+        super(menu, inv, title);
+        this.imageWidth = 250;
+        this.imageHeight = 280;
+        this.cachedGreetingText = menu.getGreetingText();
+        this.cachedSelectedSound = menu.getGreetingSound();
     }
+
+    // ==================== 初始化 ====================
 
     @Override
     protected void init() {
         super.init();
-        removeButtons.clear();
+        tabWidgets.clear();
+        visitableEntries.clear();
 
-        int guiLeft = this.leftPos;
-        int guiTop = this.topPos;
+        // —— 侧边栏标签页按钮（常驻，不随标签切换移除） ——
+        for (int i = 0; i < TAB_NAMES.length; i++) {
+            final int tab = i;
+            Button btn = Button.builder(Component.literal(TAB_NAMES[i]), b -> switchTab(tab))
+                    .pos(this.leftPos + 2, this.topPos + 6 + i * (TAB_BTN_H + TAB_GAP))
+                    .size(SIDEBAR_WIDTH - 4, TAB_BTN_H)
+                    .build();
+            this.addRenderableWidget(btn);
+        }
 
-        // 从 Menu 获取服务端同步的在线玩家数据（已排除岛主）
-        this.playerNameMap = this.menu.getOnlinePlayers();
-        this.availablePlayerUuids = new ArrayList<>(playerNameMap.keySet());
+        // —— 构建当前标签页内容 ——
+        rebuildTabContent();
+    }
 
-        // 在线玩家下拉选择按钮
-        if (!availablePlayerUuids.isEmpty()) {
-            this.playerDropdown = CycleButton.<UUID>builder(uuid ->
-                            Component.literal(playerNameMap.getOrDefault(uuid, "???")))
-                    .withValues(availablePlayerUuids)
-                    .withInitialValue(availablePlayerUuids.get(0))
-                    .create(guiLeft + 10, guiTop + 118, 120, 20, Component.empty());
-            this.addRenderableWidget(this.playerDropdown);
+    // ==================== 标签页切换 ====================
+
+    private void switchTab(int newTab) {
+        if (newTab == currentTab) return;
+
+        // 保存 Tab 2 编辑状态
+        if (currentTab == TAB_SETTINGS) {
+            if (greetingEditBox != null) cachedGreetingText = greetingEditBox.getValue();
+        }
+
+        currentTab = newTab;
+        rebuildTabContent();
+    }
+
+    /** 清除标签页组件，然后重建当前标签页 */
+    private void rebuildTabContent() {
+        // 移除旧标签页组件
+        for (AbstractWidget w : tabWidgets) removeWidget(w);
+        tabWidgets.clear();
+
+        switch (currentTab) {
+            case TAB_TERRITORY -> buildTerritoryTab();
+            case TAB_SETTINGS  -> buildSettingsTab();
+            case TAB_VISIT     -> buildVisitTab();
+        }
+    }
+
+    /** 向当前标签页添加组件的便捷方法 */
+    private <T extends AbstractWidget> T addTabWidget(T widget) {
+        tabWidgets.add(widget);
+        this.addRenderableWidget(widget);
+        return widget;
+    }
+
+    // ==================== Tab 1: 领地管理 ====================
+
+    private void buildTerritoryTab() {
+        int cx = this.leftPos + SIDEBAR_WIDTH + 8;   // content x
+        int cy = this.topPos;                          // base y
+        int cw = this.imageWidth - SIDEBAR_WIDTH - 16; // content width
+
+        // —— 信任玩家删除按钮 ——
+        int y = cy + 62;
+        for (UUID uuid : this.menu.getMenuAllowedPlayers()) {
+            addTabWidget(Button.builder(Component.literal("×"), b -> {
+                NetworkManager.sendToServer(new RemoveFriendPayload(uuid));
+            }).pos(cx + cw - 18, y - 2).size(18, 16).build());
+            y += 18;
+            if (y > cy + 130) break;
+        }
+
+        // —— 在线玩家下拉选择 ——
+        Map<UUID, String> onlinePlayers = this.menu.getOnlinePlayers();
+        List<UUID> uuids = new ArrayList<>(onlinePlayers.keySet());
+
+        CycleButton<UUID> dropdown;
+        if (!uuids.isEmpty()) {
+            dropdown = CycleButton.<UUID>builder(uuid ->
+                            Component.literal(onlinePlayers.getOrDefault(uuid, "???")))
+                    .withValues(uuids)
+                    .withInitialValue(uuids.get(0))
+                    .create(cx, cy + 164, cw - 55, 20, Component.empty());
         } else {
-            // 没有其他在线玩家时显示禁用按钮
             UUID placeholder = UUID.randomUUID();
-            this.playerDropdown = CycleButton.<UUID>builder(uuid -> Component.empty())
+            dropdown = CycleButton.<UUID>builder(uuid -> Component.literal("无在线玩家"))
                     .withValues(placeholder)
                     .withInitialValue(placeholder)
-                    .create(guiLeft + 10, guiTop + 118, 120, 20, Component.empty());
-            this.playerDropdown.active = false;
-            this.playerDropdown.setTooltip(
-                    Tooltip.create(Component.literal("当前无其他在线玩家")));
-            this.addRenderableWidget(this.playerDropdown);
+                    .create(cx, cy + 164, cw - 55, 20, Component.empty());
+            dropdown.active = false;
         }
+        addTabWidget(dropdown);
 
-        // "添加权限"按钮
-        this.addButton = Button.builder(Component.literal("添加"), button -> onAddClicked())
-                .pos(guiLeft + 135, guiTop + 117)
-                .size(70, 22)
-                .build();
-        this.addButton.active = !availablePlayerUuids.isEmpty();
-        this.addRenderableWidget(this.addButton);
+        // —— 添加权限按钮 ——
+        final CycleButton<UUID> dd = dropdown;
+        addTabWidget(Button.builder(Component.literal("添加"), b -> {
+            if (!uuids.isEmpty() && dd.getValue() != null) {
+                NetworkManager.sendToServer(new AddFriendPayload(dd.getValue()));
+            }
+        }).pos(cx + cw - 50, cy + 163).size(50, 22).build());
 
-        // 为每个信任玩家创建"删除"按钮（仅在 init 时创建一次）
-        int y = guiTop + 82;
-        for (UUID uuid : this.menu.getMenuAllowedPlayers()) {
-            Button removeBtn = Button.builder(Component.literal("×"),
-                    button -> onRemoveClicked(uuid))
-                    .pos(guiLeft + 185, y - 2)
-                    .size(20, 16)
-                    .build();
-            this.addRenderableWidget(removeBtn);
-            removeButtons.add(removeBtn);
-            y += 20;
-            if (y > guiTop + 180) break;
-        }
-
-        // 领地边界显示切换按钮
-        CycleButton<Boolean> borderToggle = CycleButton.<Boolean>builder(state ->
-                        Component.literal(state ? "§a显示边界: ON" : "§c显示边界: OFF"))
+        // —— 领地边界开关 ——
+        addTabWidget(CycleButton.<Boolean>builder(state ->
+                        Component.literal(state ? "§a边界: ON" : "§c边界: OFF"))
                 .withValues(true, false)
                 .withInitialValue(this.menu.isShowBorder())
-                .withTooltip(state -> Tooltip.create(Component.literal("开启后靠近领地边界时显示粒子墙")))
-                .create(guiLeft + 10, guiTop + 198, 200, 20, Component.empty(),
-                        (button, newState) -> {
-                            NetworkManager.sendToServer(new ToggleBorderPayload(newState));
-                        });
-        this.addRenderableWidget(borderToggle);
+                .withTooltip(state -> Tooltip.create(
+                        Component.literal("开启后靠近领地边界时显示粒子墙")))
+                .create(cx, cy + 218, cw, 20, Component.empty(),
+                        (btn, newState) -> NetworkManager.sendToServer(
+                                new ToggleBorderPayload(newState))));
+    }
 
-        // ===== 欢迎寄语编辑区 =====
-        this.selectedSound = this.menu.getGreetingSound();
+    // ==================== Tab 2: 洞天设置 ====================
 
-        // 寄语输入框
-        this.greetingEditBox = new EditBox(this.font, guiLeft + 10, guiTop + 240, 200, 20,
-                Component.literal(""));
+    private void buildSettingsTab() {
+        int cx = this.leftPos + SIDEBAR_WIDTH + 8;
+        int cy = this.topPos;
+        int cw = this.imageWidth - SIDEBAR_WIDTH - 16;
+
+        // —— 欢迎仪式总开关 ——
+        this.greetingToggle = addTabWidget(Checkbox.builder(
+                        Component.literal("启用入场欢迎仪式"), this.font)
+                .pos(cx, cy + 20)
+                .selected(this.menu.isEnableGreeting())
+                .onValueChange((cb, selected) ->
+                        NetworkManager.sendToServer(new ToggleGreetingPayload(selected)))
+                .build());
+
+        // —— 寄语输入框 ——
+        this.greetingEditBox = addTabWidget(new EditBox(this.font,
+                cx, cy + 60, cw, 20, Component.literal("")));
         this.greetingEditBox.setMaxLength(128);
-        this.greetingEditBox.setValue(this.menu.getGreetingText());
-        this.addRenderableWidget(this.greetingEditBox);
+        this.greetingEditBox.setValue(cachedGreetingText);
 
-        // 音效选择下拉按钮（用 Integer 索引映射到 SOUND_OPTIONS）
-        int initialSoundIndex = 0;
+        // —— 音效选择下拉 ——
+        int initialIdx = 0;
         for (int i = 0; i < SOUND_OPTIONS.length; i++) {
-            if (SOUND_OPTIONS[i][1].equals(this.selectedSound)) {
-                initialSoundIndex = i;
+            if (SOUND_OPTIONS[i][1].equals(cachedSelectedSound)) {
+                initialIdx = i;
                 break;
             }
         }
-        List<Integer> soundIndices = new ArrayList<>();
-        for (int i = 0; i < SOUND_OPTIONS.length; i++) soundIndices.add(i);
+        List<Integer> indices = new ArrayList<>();
+        for (int i = 0; i < SOUND_OPTIONS.length; i++) indices.add(i);
 
-        CycleButton<Integer> soundDropdown = CycleButton.<Integer>builder(idx ->
+        addTabWidget(CycleButton.<Integer>builder(idx ->
                         Component.literal(SOUND_OPTIONS[idx][0]))
-                .withValues(soundIndices)
-                .withInitialValue(initialSoundIndex)
-                .create(guiLeft + 10, guiTop + 274, 120, 20, Component.literal("音效:"),
-                        (button, newIdx) -> {
-                            selectedSound = SOUND_OPTIONS[newIdx][1];
-                        });
-        this.addRenderableWidget(soundDropdown);
+                .withValues(indices)
+                .withInitialValue(initialIdx)
+                .create(cx, cy + 100, cw - 10, 20, Component.literal("音效:"),
+                        (btn, newIdx) -> cachedSelectedSound = SOUND_OPTIONS[newIdx][1]));
 
-        // 保存按钮
-        Button saveGreetingBtn = Button.builder(Component.literal("保存寄语"), button -> {
+        // —— 保存按钮 ——
+        addTabWidget(Button.builder(Component.literal("保存寄语"), b -> {
             String text = greetingEditBox.getValue();
             if (text.isEmpty()) text = IslandInfo.DEFAULT_GREETING_TEXT;
-            NetworkManager.sendToServer(new UpdateGreetingPayload(text, selectedSound));
-        }).pos(guiLeft + 135, guiTop + 273).size(75, 22).build();
-        this.addRenderableWidget(saveGreetingBtn);
+            cachedGreetingText = text;
+            NetworkManager.sendToServer(new UpdateGreetingPayload(text, cachedSelectedSound));
+        }).pos(cx + cw - 80, cy + 135).size(80, 20).build());
+    }
 
-        // ===== 拜访他人空岛区域 =====
-        // 从 S2C 缓冲区加载可拜访列表（如果有待读取数据）
+    // ==================== Tab 3: 壶中传书 ====================
+
+    private void buildVisitTab() {
+        int cx = this.leftPos + SIDEBAR_WIDTH + 8;
+        int cy = this.topPos;
+
+        // 从 S2C 缓冲区加载
         if (visitPendingData != null) {
             this.visitableEntries = new ArrayList<>(visitPendingData);
             visitPendingData = null;
         }
 
         // 传送按钮
-        this.teleportButton = Button.builder(Component.literal("传送"), button -> {
-            if (selectedVisitUuid != null) {
-                NetworkManager.sendToServer(new TeleportToIslandPayload(selectedVisitUuid));
-            }
-        }).pos(guiLeft + 60, guiTop + 426).size(100, 20).build();
+        this.teleportButton = addTabWidget(Button.builder(
+                Component.literal("传送"), b -> {
+                    if (selectedVisitUuid != null) {
+                        NetworkManager.sendToServer(
+                                new TeleportToIslandPayload(selectedVisitUuid));
+                    }
+                }).pos(cx + 50, cy + 218).size(100, 20).build());
         this.teleportButton.active = selectedVisitUuid != null;
-        this.addRenderableWidget(this.teleportButton);
 
-        // 向服务端请求最新的可拜访空岛列表
+        // 请求最新列表
         NetworkManager.sendToServer(new RequestVisitableIslandsPayload());
     }
 
-    private void onAddClicked() {
-        if (availablePlayerUuids.isEmpty()) return;
-        if (playerDropdown == null) return;
-        UUID selectedUuid = playerDropdown.getValue();
-        NetworkManager.sendToServer(new AddFriendPayload(selectedUuid));
-    }
+    // ==================== 渲染 ====================
 
-    private void onRemoveClicked(UUID playerUuid) {
-        NetworkManager.sendToServer(new RemoveFriendPayload(playerUuid));
+    @Override
+    protected void renderBg(GuiGraphics g, float pt, int mx, int my) {
+        // 主背景
+        g.fill(this.leftPos, this.topPos,
+                this.leftPos + this.imageWidth, this.topPos + this.imageHeight, CLR_BG);
+        // 侧边栏
+        g.fill(this.leftPos, this.topPos,
+                this.leftPos + SIDEBAR_WIDTH, this.topPos + this.imageHeight, CLR_SIDEBAR);
+
+        // 标签页按钮着色（模拟激活态）
+        for (int i = 0; i < TAB_NAMES.length; i++) {
+            int bx = this.leftPos + 2;
+            int by = this.topPos + 6 + i * (TAB_BTN_H + TAB_GAP);
+            int color = (i == currentTab) ? CLR_ACTIVE_TAB : CLR_INACTIVE;
+            g.fill(bx, by, bx + SIDEBAR_WIDTH - 4, by + TAB_BTN_H, color);
+        }
+
+        // 内容区域顶部装饰线
+        int cx = this.leftPos + SIDEBAR_WIDTH;
+        g.fill(cx, this.topPos, cx + 2, this.topPos + this.imageHeight, 0x40FFFFFF);
     }
 
     @Override
-    protected void renderBg(GuiGraphics graphics, float partialTick, int mouseX, int mouseY) {
-        // 半透明深色背景
-        graphics.fill(this.leftPos, this.topPos,
-                this.leftPos + this.imageWidth, this.topPos + this.imageHeight,
-                0xCC1A1A2E);
+    public void render(GuiGraphics g, int mx, int my, float pt) {
+        this.renderBackground(g, mx, my, pt);
+        super.render(g, mx, my, pt);
+
+        int cx = this.leftPos + SIDEBAR_WIDTH + 8;
+        int cy = this.topPos;
+        int cw = this.imageWidth - SIDEBAR_WIDTH - 16;
+
+        switch (currentTab) {
+            case TAB_TERRITORY -> renderTerritoryContent(g, cx, cy, cw);
+            case TAB_SETTINGS  -> renderSettingsContent(g, cx, cy, cw);
+            case TAB_VISIT     -> renderVisitContent(g, cx, cy, cw);
+        }
+
+        this.renderTooltip(g, mx, my);
     }
 
-    @Override
-    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(graphics, mouseX, mouseY, partialTick);
-        super.render(graphics, mouseX, mouseY, partialTick);
+    // ---------- Tab 1 渲染 ----------
 
-        int guiLeft = this.leftPos;
-        int guiTop = this.topPos;
-
+    private void renderTerritoryContent(GuiGraphics g, int cx, int cy, int cw) {
         // 标题
-        graphics.drawString(this.font, "§l空岛管理面板",
-                guiLeft + 10, guiTop + 10, 0xFFD700, false);
+        g.drawString(this.font, "§6§l领地管理", cx, cy + 8, 0xFFD700, false);
 
-        // 空岛坐标
-        graphics.drawString(this.font,
+        // 坐标 & 主人
+        g.drawString(this.font,
                 "坐标: (" + this.menu.getIslandX() + ", " + this.menu.getIslandZ() + ")",
-                guiLeft + 10, guiTop + 28, 0xFFFFFF, false);
-
-        // 主人名称
-        graphics.drawString(this.font,
-                "主人: " + this.menu.getOwnerName(),
-                guiLeft + 10, guiTop + 42, 0xFFFFFF, false);
+                cx, cy + 24, 0xFFFFFF, false);
+        g.drawString(this.font, "主人: " + this.menu.getOwnerName(),
+                cx, cy + 36, 0xFFFFFF, false);
 
         // 分隔线
-        graphics.fill(guiLeft + 10, guiTop + 56, guiLeft + 210, guiTop + 57, 0x80FFFFFF);
+        g.fill(cx, cy + 47, cx + cw, cy + 48, 0x80FFFFFF);
 
-        // 信任玩家列表标题
-        graphics.drawString(this.font, "§n信任玩家:",
-                guiLeft + 10, guiTop + 62, 0xAAAAAA, false);
+        // 信任玩家标题
+        g.drawString(this.font, "§n信任玩家:", cx, cy + 52, 0xAAAAAA, false);
 
-        // 渲染信任玩家 UUID 文本（按钮已在 init 中创建）
-        int y = guiTop + 82;
+        // 信任玩家列表
+        int y = cy + 66;
         List<UUID> players = this.menu.getMenuAllowedPlayers();
         if (players.isEmpty()) {
-            graphics.drawString(this.font, "(暂无)", guiLeft + 12, y, 0x808080, false);
+            g.drawString(this.font, "(暂无)", cx + 2, y, 0x808080, false);
         } else {
             for (UUID uuid : players) {
-                String display = uuid.toString().substring(0, 8) + "...";
-                graphics.drawString(this.font, display, guiLeft + 12, y, 0xFFFFFF, false);
-                y += 20;
-                if (y > guiTop + 180) break;
+                g.drawString(this.font,
+                        uuid.toString().substring(0, 8) + "...",
+                        cx + 2, y, 0xFFFFFF, false);
+                y += 18;
+                if (y > cy + 130) break;
             }
         }
 
-        // 下拉按钮上方标签
-        graphics.drawString(this.font, "添加在线玩家:",
-                guiLeft + 10, guiTop + 106, 0xAAAAAA, false);
+        // 添加在线玩家标签
+        g.fill(cx, cy + 148, cx + cw, cy + 149, 0x80FFFFFF);
+        g.drawString(this.font, "添加在线玩家:", cx, cy + 152, 0xAAAAAA, false);
 
-        // ===== 欢迎寄语区标签 =====
-        // 分隔线
-        graphics.fill(guiLeft + 10, guiTop + 222, guiLeft + 210, guiTop + 223, 0x80FFFFFF);
+        // 边界标签
+        g.fill(cx, cy + 200, cx + cw, cy + 201, 0x80FFFFFF);
+        g.drawString(this.font, "领地设置:", cx, cy + 205, 0xAAAAAA, false);
+    }
 
-        graphics.drawString(this.font, "§n欢迎寄语:",
-                guiLeft + 10, guiTop + 228, 0xAAAAAA, false);
+    // ---------- Tab 2 渲染 ----------
 
-        // ===== 拜访他人空岛区域渲染 =====
-        // 分隔线
-        graphics.fill(guiLeft + 10, guiTop + 302, guiLeft + 210, guiTop + 303, 0x80FFFFFF);
+    private void renderSettingsContent(GuiGraphics g, int cx, int cy, int cw) {
+        g.drawString(this.font, "§6§l洞天设置", cx, cy + 8, 0xFFD700, false);
+        g.fill(cx, cy + 47, cx + cw, cy + 48, 0x80FFFFFF);
 
-        // 区域标题
-        graphics.drawString(this.font, "§n拜访他人空岛:",
-                guiLeft + 10, guiTop + 308, 0xAAAAAA, false);
+        g.drawString(this.font, "§n欢迎寄语:", cx, cy + 52, 0xAAAAAA, false);
+
+        // 音效标签
+        g.drawString(this.font, "§n音效选择:", cx, cy + 90, 0xAAAAAA, false);
+    }
+
+    // ---------- Tab 3 渲染 ----------
+
+    private void renderVisitContent(GuiGraphics g, int cx, int cy, int cw) {
+        g.drawString(this.font, "§6§l壶中传书", cx, cy + 8, 0xFFD700, false);
+        g.fill(cx, cy + 47, cx + cw, cy + 48, 0x80FFFFFF);
+
+        g.drawString(this.font, "§n可拜访空岛:", cx, cy + 52, 0xAAAAAA, false);
 
         // 列表背景
-        graphics.fill(guiLeft + 10, guiTop + 322, guiLeft + 210, guiTop + 422, 0x30FFFFFF);
+        int listTop = cy + 64;
+        int listBottom = cy + 210;
+        g.fill(cx, listTop, cx + cw, listBottom, 0x30FFFFFF);
 
-        // 检查 S2C 异步返回的数据
+        // 异步数据检查
         if (visitPendingData != null) {
             this.visitableEntries = new ArrayList<>(visitPendingData);
             visitPendingData = null;
-            // 重新启用传送按钮
             if (teleportButton != null) {
                 teleportButton.active = selectedVisitUuid != null;
             }
         }
 
-        // 渲染可见条目（使用裁剪防止溢出列表区域）
-        int listTop = guiTop + 322;
-        int listBottom = guiTop + 422;
-        int entryHeight = 14;
-        graphics.enableScissor(guiLeft + 10, listTop, guiLeft + 210, listBottom);
+        // 渲染条目（带裁剪）
+        int entryH = 14;
+        g.enableScissor(cx, listTop, cx + cw, listBottom);
         for (int i = visitScrollOffset; i < visitableEntries.size(); i++) {
-            int entryY = listTop + (i - visitScrollOffset) * entryHeight;
-            if (entryY + entryHeight > listBottom) break;
+            int ey = listTop + (i - visitScrollOffset) * entryH;
+            if (ey + entryH > listBottom) break;
 
             SyncVisitableIslandsPayload.IslandEntry entry = visitableEntries.get(i);
-            boolean isSelected = Objects.equals(entry.ownerUuid(), selectedVisitUuid);
+            boolean sel = Objects.equals(entry.ownerUuid(), selectedVisitUuid);
 
-            // 选中高亮
-            if (isSelected) {
-                graphics.fill(guiLeft + 10, entryY, guiLeft + 210, entryY + entryHeight, 0x60FFD700);
-            }
+            if (sel) g.fill(cx, ey, cx + cw, ey + entryH, 0x60FFD700);
 
-            // 条目文本：岛主名 + 空岛编号
-            graphics.drawString(this.font,
+            g.drawString(this.font,
                     entry.ownerName() + " #" + entry.index(),
-                    guiLeft + 14, entryY + 3,
-                    isSelected ? 0xFFFF00 : 0xFFFFFF, false);
+                    cx + 4, ey + 3, sel ? 0xFFFF00 : 0xFFFFFF, false);
         }
-        graphics.disableScissor();
+        g.disableScissor();
 
-        // 空列表提示
         if (visitableEntries.isEmpty()) {
-            graphics.drawString(this.font, "加载中...",
-                    guiLeft + 80, guiTop + 368, 0x808080, false);
+            g.drawString(this.font, "加载中...",
+                    cx + cw / 2 - 16, cy + 132, 0x808080, false);
         }
 
-        this.renderTooltip(graphics, mouseX, mouseY);
+        // 底部提示
+        g.drawString(this.font, "§7选择空岛后点击传送",
+                cx, cy + 248, 0x888888, false);
+    }
+
+    // ==================== 鼠标交互 ====================
+
+    @Override
+    public boolean mouseClicked(double mx, double my, int btn) {
+        if (super.mouseClicked(mx, my, btn)) return true;
+
+        if (currentTab == TAB_VISIT) {
+            int cx = this.leftPos + SIDEBAR_WIDTH + 8;
+            int cw = this.imageWidth - SIDEBAR_WIDTH - 16;
+            int listTop = this.topPos + 64;
+            int listBottom = this.topPos + 210;
+
+            if (mx >= cx && mx <= cx + cw && my >= listTop && my <= listBottom) {
+                int entryH = 14;
+                int idx = visitScrollOffset + (int) ((my - listTop) / entryH);
+                if (idx >= 0 && idx < visitableEntries.size()) {
+                    selectedVisitUuid = visitableEntries.get(idx).ownerUuid();
+                    if (teleportButton != null) teleportButton.active = true;
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (super.mouseClicked(mouseX, mouseY, button)) return true;
+    public boolean mouseScrolled(double mx, double my, double sx, double sy) {
+        if (super.mouseScrolled(mx, my, sx, sy)) return true;
 
-        // 拜访列表点击检测
-        int listLeft = this.leftPos + 10;
-        int listRight = this.leftPos + 210;
-        int listTop = this.topPos + 322;
-        int listBottom = this.topPos + 422;
+        if (currentTab == TAB_VISIT) {
+            int cx = this.leftPos + SIDEBAR_WIDTH + 8;
+            int cw = this.imageWidth - SIDEBAR_WIDTH - 16;
+            int listTop = this.topPos + 64;
+            int listBottom = this.topPos + 210;
 
-        if (mouseX >= listLeft && mouseX <= listRight
-                && mouseY >= listTop && mouseY <= listBottom) {
-            int entryHeight = 14;
-            int idx = visitScrollOffset + (int) ((mouseY - listTop) / entryHeight);
-            if (idx >= 0 && idx < visitableEntries.size()) {
-                selectedVisitUuid = visitableEntries.get(idx).ownerUuid();
-                if (teleportButton != null) {
-                    teleportButton.active = true;
-                }
+            if (mx >= cx && mx <= cx + cw && my >= listTop && my <= listBottom) {
+                int entryH = 14;
+                int maxVisible = (listBottom - listTop) / entryH;
+                int maxOffset = Math.max(0, visitableEntries.size() - maxVisible);
+                visitScrollOffset = (int) Math.max(0,
+                        Math.min(maxOffset, visitScrollOffset - sy));
                 return true;
             }
         }
-
         return false;
     }
 
+    // ==================== 键盘拦截 ====================
+
+    /**
+     * 修复"在 EditBox 中输入含 E 的英文单词时按 E 会关闭 GUI"的问题。
+     * <p>
+     * 当欢迎语输入框处于聚焦状态时，拦截 Inventory 快捷键（默认 E），
+     * 阻止其传递给父类触发关闭逻辑。
+     * </p>
+     */
     @Override
-    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
-        if (super.mouseScrolled(mouseX, mouseY, scrollX, scrollY)) return true;
-
-        // 拜访列表滚动处理
-        int listLeft = this.leftPos + 10;
-        int listRight = this.leftPos + 210;
-        int listTop = this.topPos + 322;
-        int listBottom = this.topPos + 422;
-
-        if (mouseX >= listLeft && mouseX <= listRight
-                && mouseY >= listTop && mouseY <= listBottom) {
-            int entryHeight = 14;
-            int maxVisible = (listBottom - listTop) / entryHeight;
-            int maxOffset = Math.max(0, visitableEntries.size() - maxVisible);
-            visitScrollOffset = (int) Math.max(0, Math.min(maxOffset, visitScrollOffset - scrollY));
-            return true;
+    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        if (greetingEditBox != null && greetingEditBox.isFocused()) {
+            // 拦截 Inventory 键（默认 E）
+            if (this.minecraft != null
+                    && this.minecraft.options.keyInventory
+                    .matches(keyCode, scanCode)) {
+                return true; // 事件已消费，不传播
+            }
         }
-
-        return false;
+        return super.keyPressed(keyCode, scanCode, modifiers);
     }
 }

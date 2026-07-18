@@ -40,6 +40,7 @@ public class IslandManagementMenu extends AbstractContainerMenu {
     private final List<UUID> allowedPlayers;
     private final Map<UUID, String> onlinePlayers;
     private final boolean showBorder;
+    private final boolean enableGreeting;
     private final String greetingText;
     private final String greetingSound;
 
@@ -53,6 +54,7 @@ public class IslandManagementMenu extends AbstractContainerMenu {
 
         String name = "Unknown";
         boolean border = false;
+        boolean greeting = true;
         String gText = IslandInfo.DEFAULT_GREETING_TEXT;
         String gSound = IslandInfo.DEFAULT_GREETING_SOUND;
         if (player instanceof ServerPlayer sp) {
@@ -67,6 +69,7 @@ public class IslandManagementMenu extends AbstractContainerMenu {
                         }
                         IslandInfo info = entry.getValue();
                         border = info.isShowBorder();
+                        greeting = info.isEnableGreeting();
                         gText = info.getGreetingText();
                         gSound = info.getGreetingSound();
                         break;
@@ -76,6 +79,7 @@ public class IslandManagementMenu extends AbstractContainerMenu {
         }
         this.ownerName = name;
         this.showBorder = border;
+        this.enableGreeting = greeting;
         this.greetingText = gText;
         this.greetingSound = gSound;
         this.allowedPlayers = getAllowedPlayersForIsland(player, islandX);
@@ -100,8 +104,9 @@ public class IslandManagementMenu extends AbstractContainerMenu {
             this.allowedPlayers = new ArrayList<>((List<UUID>) pendingData[3]);
             this.onlinePlayers = new LinkedHashMap<>((Map<UUID, String>) pendingData[4]);
             this.showBorder = (boolean) pendingData[5];
-            this.greetingText = (String) pendingData[6];
-            this.greetingSound = (String) pendingData[7];
+            this.enableGreeting = (boolean) pendingData[6];
+            this.greetingText = (String) pendingData[7];
+            this.greetingSound = (String) pendingData[8];
             pendingData = null;
         } else {
             this.islandX = 0;
@@ -110,6 +115,7 @@ public class IslandManagementMenu extends AbstractContainerMenu {
             this.allowedPlayers = new ArrayList<>();
             this.onlinePlayers = new LinkedHashMap<>();
             this.showBorder = false;
+            this.enableGreeting = true;
             this.greetingText = IslandInfo.DEFAULT_GREETING_TEXT;
             this.greetingSound = IslandInfo.DEFAULT_GREETING_SOUND;
         }
@@ -138,6 +144,7 @@ public class IslandManagementMenu extends AbstractContainerMenu {
     public List<UUID> getMenuAllowedPlayers() { return allowedPlayers; }
     public Map<UUID, String> getOnlinePlayers() { return onlinePlayers; }
     public boolean isShowBorder() { return showBorder; }
+    public boolean isEnableGreeting() { return enableGreeting; }
     public String getGreetingText() { return greetingText; }
     public String getGreetingSound() { return greetingSound; }
 

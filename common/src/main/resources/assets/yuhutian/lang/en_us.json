@@ -28,5 +28,12 @@
   "gui.yuhutian.visit_loading": "Loading...",
   "gui.yuhutian.visit_no_island": "This island does not exist.",
   "gui.yuhutian.visit_no_permission": "You do not have permission to visit this island!",
-  "gui.yuhutian.visit_success": "Teleported to island! Use Yu Hu Tian again to return."
+  "gui.yuhutian.visit_success": "Teleported to island! Use Yu Hu Tian again to return.",
+  "gui.yuhutian.tab_territory": "Manage",
+  "gui.yuhutian.tab_settings": "Settings",
+  "gui.yuhutian.tab_visit": "Visit",
+  "gui.yuhutian.greeting_enable": "Enable Welcome Ceremony",
+  "gui.yuhutian.greeting_toggle_on": "Welcome ceremony enabled.",
+  "gui.yuhutian.greeting_toggle_off": "Welcome ceremony disabled.",
+  "gui.yuhutian.sound_challenge": "Challenge Complete"
 }

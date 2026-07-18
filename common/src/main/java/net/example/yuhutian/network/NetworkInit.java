@@ -81,6 +81,16 @@ public final class NetworkInit {
                     });
                 });
 
+        // 注册 ToggleGreetingPayload 接收器（切换欢迎仪式开关）
+        NetworkManager.registerReceiver(NetworkManager.c2s(),
+                ToggleGreetingPayload.TYPE, ToggleGreetingPayload.STREAM_CODEC,
+                (payload, context) -> {
+                    if (!(context.getPlayer() instanceof ServerPlayer player)) return;
+                    player.getServer().execute(() -> {
+                        handleToggleGreeting(player, payload.enableGreeting());
+                    });
+                });
+
         // 注册 RequestVisitableIslandsPayload 接收器（请求可拜访的空岛列表）
         NetworkManager.registerReceiver(NetworkManager.c2s(),
                 RequestVisitableIslandsPayload.TYPE, RequestVisitableIslandsPayload.STREAM_CODEC,
@@ -117,6 +127,7 @@ public final class NetworkInit {
                             payload.allowedPlayers(),
                             payload.onlinePlayers(),
                             payload.showBorder(),
+                            payload.enableGreeting(),
                             payload.greetingText(),
                             payload.greetingSound()
                     };
@@ -240,6 +251,28 @@ public final class NetworkInit {
     }
 
     /**
+     * 处理欢迎仪式开关切换。
+     * 仅当发送者是该空岛 Owner 时生效。
+     */
+    private static void handleToggleGreeting(ServerPlayer requester, boolean enableGreeting) {
+        ServerLevel yuhutianLevel = requester.getServer().getLevel(YuhutianDimension.YUHUTIAN_LEVEL);
+        if (yuhutianLevel == null) return;
+
+        IslandSavedData data = IslandSavedData.getOrCreate(yuhutianLevel);
+
+        if (!data.hasIsland(requester.getUUID())) return;
+
+        IslandInfo island = data.getIsland(requester.getUUID());
+        if (island != null) {
+            island.setEnableGreeting(enableGreeting);
+            data.setDirty();
+            String status = enableGreeting ? "§a欢迎仪式已开启。" : "§e欢迎仪式已关闭。";
+            requester.displayClientMessage(
+                    Component.literal(status), false);
+        }
+    }
+
+    /**
      * 处理可拜访空岛列表请求。
      * 筛选出请求者拥有或被信任的所有空岛，将列表通过 S2C 包发回客户端。
      */
@@ -330,8 +363,10 @@ public final class NetworkInit {
         yuhutianLevel.playSound(null, targetX, targetY, targetZ,
                 SoundEvents.ENDERMAN_TELEPORT, SoundSource.PLAYERS, 1.0F, 1.0F);
 
-        // 触发入场欢迎仪式（Phase 6 的 Title + 自定义音效）
-        YuHuTianItem.playGreetingCeremony(requester, targetIsland);
+        // 触发入场欢迎仪式（仅在岛主开启时播放 Title + 自定义音效）
+        if (targetIsland.isEnableGreeting()) {
+            YuHuTianItem.playGreetingCeremony(requester, targetIsland);
+        }
 
         requester.displayClientMessage(
                 Component.literal("§a已传送到空岛！再次右键玉壶天可返回原处。"), false);

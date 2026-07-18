@@ -28,5 +28,12 @@
   "gui.yuhutian.visit_loading": "加载中...",
   "gui.yuhutian.visit_no_island": "该空岛不存在。",
   "gui.yuhutian.visit_no_permission": "你没有拜访该空岛的权限！",
-  "gui.yuhutian.visit_success": "已传送到空岛！再次右键玉壶天可返回原处。"
+  "gui.yuhutian.visit_success": "已传送到空岛！再次右键玉壶天可返回原处。",
+  "gui.yuhutian.tab_territory": "管理",
+  "gui.yuhutian.tab_settings": "设置",
+  "gui.yuhutian.tab_visit": "传书",
+  "gui.yuhutian.greeting_enable": "启用入场欢迎仪式",
+  "gui.yuhutian.greeting_toggle_on": "欢迎仪式已开启。",
+  "gui.yuhutian.greeting_toggle_off": "欢迎仪式已关闭。",
+  "gui.yuhutian.sound_challenge": "挑战达成"
 }

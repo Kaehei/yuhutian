@@ -143,8 +143,10 @@ public class YuHuTianItem extends Item {
             serverPlayer.displayClientMessage(
                     Component.literal("§a已到达空岛！再次右键玉壶天可返回原处。"), false);
 
-            // ===== 入场欢迎仪式：Title + 自定义音效 =====
-            playGreetingCeremony(serverPlayer, island);
+            // ===== 入场欢迎仪式：仅在岛主开启时触发 =====
+            if (island.isEnableGreeting()) {
+                playGreetingCeremony(serverPlayer, island);
+            }
 
             return InteractionResultHolder.success(stack);
         }
