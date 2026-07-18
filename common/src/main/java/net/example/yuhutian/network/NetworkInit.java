@@ -17,6 +17,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -139,6 +140,20 @@ public final class NetworkInit {
                 (payload, context) -> {
                     net.example.yuhutian.gui.IslandManagementScreen.visitPendingData = payload.entries();
                 });
+
+        // 注册信任玩家列表 S2C 包接收器（实时刷新领地管理标签页）
+        NetworkManager.registerReceiver(NetworkManager.s2c(),
+                SyncTrustedPlayersPayload.TYPE, SyncTrustedPlayersPayload.STREAM_CODEC,
+                (payload, context) -> {
+                    if (context.getPlayer() instanceof net.minecraft.client.player.LocalPlayer) {
+                        net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+                        if (mc.player != null && mc.player.containerMenu
+                                instanceof net.example.yuhutian.gui.IslandManagementMenu menu) {
+                            menu.updateTrustedData(payload.allowedPlayers(), payload.trustedNames());
+                        }
+                    }
+                    net.example.yuhutian.gui.IslandManagementScreen.refreshFromServer();
+                });
     }
 
     /**
@@ -171,7 +186,7 @@ public final class NetworkInit {
             island.addAllowedPlayer(friendUuid);
             data.setDirty();
 
-            // 尝试获取玩家名字用于提示
+            // 获取名字用于提示
             String friendName = friendUuid.toString().substring(0, 8) + "...";
             ServerPlayer friendPlayer = requester.getServer().getPlayerList().getPlayer(friendUuid);
             if (friendPlayer != null) {
@@ -179,6 +194,9 @@ public final class NetworkInit {
             }
             requester.displayClientMessage(
                     net.minecraft.network.chat.Component.literal("§a已添加 " + friendName + " 到信任列表。"), false);
+
+            // 立即 S2C 同步最新信任列表（含名字）
+            sendTrustedSync(requester, island, data);
         }
     }
 
@@ -199,6 +217,9 @@ public final class NetworkInit {
             data.setDirty();
             requester.displayClientMessage(
                     net.minecraft.network.chat.Component.literal("§a已从信任列表中移除该玩家。"), false);
+
+            // 立即 S2C 同步最新信任列表
+            sendTrustedSync(requester, island, data);
         }
     }
 
@@ -370,5 +391,29 @@ public final class NetworkInit {
 
         requester.displayClientMessage(
                 Component.literal("§a已传送到空岛！再次右键玉壶天可返回原处。"), false);
+    }
+
+    /**
+     * 解析所有信任玩家的名字并发送 S2C 同步包。
+     * 优先使用在线玩家名，离线玩家通过 ProfileCache 查询。
+     */
+    private static void sendTrustedSync(ServerPlayer requester, IslandInfo island, IslandSavedData data) {
+        List<UUID> allowed = new ArrayList<>(island.getAllowedPlayers());
+        Map<UUID, String> names = new LinkedHashMap<>();
+        for (UUID uuid : allowed) {
+            // 优先查在线玩家
+            ServerPlayer online = requester.getServer().getPlayerList().getPlayer(uuid);
+            if (online != null) {
+                names.put(uuid, online.getName().getString());
+            } else {
+                // 离线玩家通过 ProfileCache 查询
+                requester.getServer().getProfileCache().get(uuid).ifPresentOrElse(
+                        profile -> names.put(uuid, profile.getName()),
+                        () -> names.put(uuid, uuid.toString().substring(0, 8) + "...")
+                );
+            }
+        }
+        NetworkManager.sendToPlayer(requester,
+                new SyncTrustedPlayersPayload(allowed, names));
     }
 }

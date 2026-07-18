@@ -44,6 +44,9 @@ public class IslandManagementMenu extends AbstractContainerMenu {
     private final String greetingText;
     private final String greetingSound;
 
+    /** 信任玩家的 UUID → 名字映射（可通过 S2C 实时更新） */
+    private Map<UUID, String> trustedPlayerNames = new LinkedHashMap<>();
+
     /**
      * 服务端构造：由 NPC 交互触发。
      */
@@ -107,6 +110,12 @@ public class IslandManagementMenu extends AbstractContainerMenu {
             this.enableGreeting = (boolean) pendingData[6];
             this.greetingText = (String) pendingData[7];
             this.greetingSound = (String) pendingData[8];
+            // 初始化信任玩家名字映射：从在线玩家列表中查找
+            for (UUID uuid : this.allowedPlayers) {
+                String name = this.onlinePlayers.getOrDefault(uuid,
+                        uuid.toString().substring(0, 8) + "...");
+                this.trustedPlayerNames.put(uuid, name);
+            }
             pendingData = null;
         } else {
             this.islandX = 0;
@@ -147,6 +156,16 @@ public class IslandManagementMenu extends AbstractContainerMenu {
     public boolean isEnableGreeting() { return enableGreeting; }
     public String getGreetingText() { return greetingText; }
     public String getGreetingSound() { return greetingSound; }
+
+    /** 获取信任玩家 UUID→名字 映射（实时刷新用） */
+    public Map<UUID, String> getTrustedPlayerNames() { return trustedPlayerNames; }
+
+    /** S2C 实时刷新：替换信任玩家列表和名字映射，由网络包处理器调用 */
+    public void updateTrustedData(List<UUID> newAllowed, Map<UUID, String> names) {
+        this.allowedPlayers.clear();
+        this.allowedPlayers.addAll(newAllowed);
+        this.trustedPlayerNames = new LinkedHashMap<>(names);
+    }
 
     // ==================== AbstractContainerMenu 必须实现 ====================
 
